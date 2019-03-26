@@ -52,7 +52,7 @@ void CheckEndian()
 //		is executed.
 //----------------------------------------------------------------------
 
-Machine::Machine(bool debug TLBSwapPolicy tlbPolicy)
+Machine::Machine(bool debug, TLBSwapPolicy tlbPolicy)
 {
     int i;
     tlbSwapPolicy = tlbPolicy;
@@ -70,7 +70,8 @@ Machine::Machine(bool debug TLBSwapPolicy tlbPolicy)
     tlb[i].lastUseTime = 0;
     tlb[i].firstUseTime = 0;
     tlb[i].clockUse = 0;
-    // use dirty init
+    tlb[i].use = FALSE;
+    tlb[i].dirty = FALSE;
     pageTable = NULL;
 #else	// use linear page table
     tlb = NULL;
@@ -232,8 +233,10 @@ Machine::UpdateTLB(int idx)
 	case LRU:
 		tlb[idx].lastUseTime = stats->totalTicks;
 		break;
-	case NRU:
+	case CLOCK:
+		tlb[idx].clockUse = 1;
 		break;
+	case NRU:
 	case FIFO_TLB:
 		// do nothing
 		break;
@@ -262,7 +265,7 @@ int
 Machine::LRUSwap(int addr)
 {
 	DEBUG('p',"TLB MISS,use LRU swap\n");
-	int idx = -1;
+	int idx = 0;
 	int vpn = addr/PageSize;
 	int offset = addr/PageSize;
 	TranslationEntry *entry = &tlb[0];
@@ -285,11 +288,17 @@ Machine::LRUSwap(int addr)
 		}
 	}
 
+	// test
+	printf("B: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d LRU:%d \n",
+			idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].lastUseTime);
 	// update TLB
 	if(!emptyTLB)
 		pageTable[entry->virtualPage] = *entry;
 	*entry = pageTable[vpn];
 	entry->lastUseTime = stats->totalTicks;
+	printf("A: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d LRU:%d\n",
+				idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].lastUseTime);
+
 	return idx;
 }
 
@@ -298,7 +307,7 @@ int
 Machine::FIFOSwap(int addr)
 {
 	DEBUG('p',"TLB MISS,use FIFO swap\n");
-	int idx = -1;
+	int idx = 0;
 	int vpn = addr/PageSize;
 	int offset = addr/PageSize;
 	TranslationEntry *entry = &tlb[0];
@@ -321,11 +330,17 @@ Machine::FIFOSwap(int addr)
 		}
 	}
 
+	// test
+	printf("B: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d firstUseTime:%d \n",
+		idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].firstUseTime);
 	// update TLB
 	if(!emptyTLB)
 		pageTable[entry->virtualPage] = *entry;
 	*entry = pageTable[vpn];
 	entry->firstUseTime = stats->totalTicks;
+	printf("A: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d firstUseTime:%d\n",
+					idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].firstUseTime);
+
 	return idx;
 }
 
@@ -348,17 +363,25 @@ Machine::ClockSwap(int addr)
 			idx = nextFramePoint;
 			entry = &tlb[nextFramePoint];
 			found = true;
+			printf("TLB[%d] clock expired \n", idx);
 		} else {
 			--tlb[nextFramePoint].clockUse;
+			printf("TLB[%d] clock second chance \n", nextFramePoint);
 		}
 		nextFramePoint = (nextFramePoint + 1)%TLBSize;
 	} while(!found);
 
+	// test
+	printf("B: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d clockUse:%d \n",
+		idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].clockUse);
 	// update TLB
 	if(!emptyTLB)
 		pageTable[entry->virtualPage] = *entry;
 	*entry = pageTable[vpn];
 	entry->clockUse = 1;
+	printf("A: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d clockUse:%d\n",
+						idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].clockUse);
+
 	return idx;
 }
 
@@ -375,7 +398,7 @@ Machine::NRUSwap(int addr)
 	bool found = false;
 	int roundCount = 0;
 	do {
-		if (roundCount%TLBSize == 0) {
+		if ((roundCount/TLBSize)%2 == 0) {
 			if(tlb[nextFramePoint].use == 0 && tlb[nextFramePoint].dirty == 0)
 			{
 				if(!tlb[nextFramePoint].valid)
@@ -383,25 +406,35 @@ Machine::NRUSwap(int addr)
 				idx = nextFramePoint;
 				entry = &tlb[nextFramePoint];
 				found = true;
+				printf("TLB[%d] found u:0 d:0 roundCount:%d \n", idx, roundCount);
 			}
-		} else if(roundCount%TLBSize == 1) {
+		} else if((roundCount/TLBSize)%2 == 1) {
 			if(tlb[nextFramePoint].use == 0 && tlb[nextFramePoint].dirty == 1)
 			{
 				idx = nextFramePoint;
 				entry = &tlb[nextFramePoint];
 				found = true;
+				printf("TLB[%d] found u:0 d:1 roundCount:%d \n", idx, roundCount);
 			} else {
 				tlb[nextFramePoint].use = 0;
+				printf("TLB[%d] reset u:0 d:%d roundCount:%d \n", nextFramePoint, tlb[nextFramePoint].dirty, roundCount);
 			}
 		}
 		++roundCount;
 		nextFramePoint = (nextFramePoint + 1)%TLBSize;
 	} while(!found);
 
+	// test
+	printf("B: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d \n",
+		idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty);
 	// update TLB
 	if(!emptyTLB)
 		pageTable[entry->virtualPage] = *entry;
 	*entry = pageTable[vpn];
 	entry->clockUse = 1;
+	printf("A: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d \n",
+		idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty);
+
+
 	return idx;
 }

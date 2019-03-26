@@ -240,10 +240,12 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
         if (tlb[i].valid && (tlb[i].virtualPage == vpn)) {
         	UpdateTLB(i);				// tlb[i].lastUseTime = stats->totalTicks;
         	entry = &tlb[i];			// FOUND!
+        	++stats->numTLBHit;
         	break;
         }
     if (entry == NULL) {				// not found
         DEBUG('a', "*** no valid TLB entry found for this virtual page!\n");
+        ++stats->numTLBMiss;
         return PageFaultException;		// really, this is a TLB fault,
     				// the page may be in memory,
     				// but not in the TLB

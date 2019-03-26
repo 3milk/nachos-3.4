@@ -152,7 +152,7 @@ Interrupt::OneTick()
 {
     MachineStatus old = status;
 
-    printf("TEST: OneTick %d\n", stats->totalTicks);
+    //printf("TEST: OneTick %d\n", stats->totalTicks); // test for RR schduler
 // advance simulated time
     if (status == SystemMode) {
         stats->totalTicks += SystemTick;

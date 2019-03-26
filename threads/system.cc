@@ -177,7 +177,7 @@ Initialize(int argc, char **argv)
     CallOnUserAbort(Cleanup);			// if user hits ctl-C
     
 #ifdef USER_PROGRAM
-    machine = new Machine(debugUserProg);	// this must come first
+    machine = new Machine(debugUserProg, LRU);	// this must come first
 #endif
 
 #ifdef FILESYS

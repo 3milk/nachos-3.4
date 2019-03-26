@@ -36,6 +36,9 @@ class Statistics {
     int numPacketsSent;		// number of packets sent over the network
     int numPacketsRecvd;	// number of packets received over the network
 
+    int numTLBHit;			// number of TLB hit
+    int numTLBMiss;			// number of TLB miss and throw PageFaultException
+
     Statistics(); 		// initialize everything to zero
 
     void Print();		// print collected statistics
