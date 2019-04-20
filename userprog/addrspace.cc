@@ -91,6 +91,11 @@ AddrSpace::AllocAddrSpace(int tid)
 
 	DEBUG('a', "Initializing address space, num pages %d, size %d\n",
 						numPages, size);
+
+	// if use lazy-load strategy, set allocedPages 0, then all PTE.valid will be false
+	if(machine->UseLazyLoad())
+		allocedPages = 0;
+
 	// first, set up the translation
 	int physicalAddr = 0;
 	pageTable = new TranslationEntry[numPages];
@@ -156,6 +161,8 @@ AddrSpace::AllocAddrSpace(int tid)
 		pa = pageTable[vpn].physicalPage * PageSize + offset;
 		machine->mainMemory[pa] = buffer[i];
 	}
+
+	delete[] buffer;
 	return true;
 }
 
@@ -355,10 +362,12 @@ AddrSpace::LazyLoad(int phyPageNum, int vpn)
 		{
 			// part load from uninitData, which equals to 0
 			bzero(machine->mainMemory + (phyPosition + size), PageSize - size);
+			printf("LazyLoad: from uninitData or UserStack\n");
 		}
 	} else {
 		// load from uninitData or userstack, which equals to 0
 		bzero(machine->mainMemory + phyPosition, PageSize);
+		printf("LazyLoad: from uninitData or UserStack\n");
 	}
 	return 0;
 }

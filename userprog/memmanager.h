@@ -43,7 +43,7 @@ class MemManager {
     int GetThreadId(int phyNum);
     int GetVirPageNum(int phyNum);
 
-    int FindSwapPage();	// LRU
+    int FindSwapPage(bool* unused);	// LRU
 
     bool ZeroPhyMemPage(int phyNum);
 

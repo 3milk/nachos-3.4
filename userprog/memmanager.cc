@@ -112,7 +112,7 @@ MemManager::GetVirPageNum(int phyNum)
  * return:		physical page number
  * */
 int
-MemManager::FindSwapPage()
+MemManager::FindSwapPage(bool* unused)
 {
 	int idx = 0;
 	int min = phyMemPageTable[0].lastUsedTime;
@@ -125,7 +125,7 @@ MemManager::FindSwapPage()
 		}
 	}
 
-	//printf("A: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d LRU:%d\n",
-	//		idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].lastUseTime);
+	*unused = !bitmap->Test(idx);
+
 	return idx;
 }

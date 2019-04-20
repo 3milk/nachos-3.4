@@ -52,10 +52,11 @@ void CheckEndian()
 //		is executed.
 //----------------------------------------------------------------------
 
-Machine::Machine(bool debug, TLBSwapPolicy tlbPolicy)
+Machine::Machine(bool debug, TLBSwapPolicy tlbPolicy, bool lazyLoadStrategy)
 {
     int i;
     tlbSwapPolicy = tlbPolicy;
+    lazyLoad = lazyLoadStrategy;
     nextFramePoint = 0;
 
     for (i = 0; i < NumTotalRegs; i++)
@@ -500,21 +501,23 @@ Machine::SwapPage(int addr)
 	int virPageNum = 0;
 	int tid = 0;
 	int swappingPage = -1;
-	phyPageNum = LRUSwapPage();
+	bool unused = false;
+	phyPageNum = LRUSwapPage(&unused);
 
 	// 2. swap physical page to "disk"
 	// update the pageTable related to phyPageNum
 	// get phyPageNum --- thread --- addr space --- pageTable --- vpn --- swappingPage
-	virPageNum = memManager->GetVirPageNum(phyPageNum);
-	tid = memManager->GetThreadId(phyPageNum);
-	if(virPageNum < 0 || tid < 0 || tid_pointer[tid]->space == NULL)
-		return -1;
-	swappingPage = swapManager->swapIntoDisk(phyPageNum);
-	tid_pointer[tid]->setPTESwappingPage(virPageNum, swappingPage);// set swappingPage and set valid to false
-	//tid_pointer[tid]->space->pageTable[virPageNum].swappingPage =
-	//	swapManager->swapIntoDisk(phyPageNum);
-	//tid_pointer[tid]->space->pageTable[virPageNum].valid = false;
-	printf("SwapPage: page to swap into 'disk': tid:%d vpn:%d ppn:%d swappage:%d\n", tid, virPageNum, phyPageNum, swappingPage);
+	if(!unused) {
+		// page has been alloced to some thread, so it need swapping into disk
+		// (not consider dirty page or not)
+		virPageNum = memManager->GetVirPageNum(phyPageNum);
+		tid = memManager->GetThreadId(phyPageNum);
+		if(virPageNum < 0 || tid < 0 || tid_pointer[tid]->space == NULL)
+			return -1;
+		swappingPage = swapManager->swapIntoDisk(phyPageNum);
+		tid_pointer[tid]->setPTESwappingPage(virPageNum, swappingPage);// set swappingPage and set valid to false
+		printf("SwapPage: page to swap into 'disk': tid:%d vpn:%d ppn:%d swappage:%d\n", tid, virPageNum, phyPageNum, swappingPage);
+	}
 
 	// 3. if need, update TLB
 	for(int i = 0; i<TLBSize; i++)
@@ -538,6 +541,13 @@ Machine::SwapPage(int addr)
 		printf("SwapPage: swap physical page from 'disk''(swap file) to memory\n");
 	}
 
+	if(unused)
+	{	// update global memory management structure
+		memManager->Mark(phyPageNum);
+		memManager->SetPhyMemPage(phyPageNum, currentThread->getTid(), vpn);
+		memManager->UpdateLastUsedTime(phyPageNum, stats->totalTicks);
+	}
+
 	// 6. set pageTable param
 	pageTable[vpn].physicalPage = phyPageNum;
 	pageTable[vpn].valid = TRUE;
@@ -551,7 +561,7 @@ Machine::SwapPage(int addr)
  *
  * */
 int
-Machine::LRUSwapPage()
+Machine::LRUSwapPage(bool* unused)
 {
 	// update pageTable by tlb
 	int vpn = 0;
@@ -571,7 +581,7 @@ Machine::LRUSwapPage()
 			memManager->UpdateLastUsedTime(phyNum, lastUsedTime);
 		}
 	}
-	return memManager->FindSwapPage();
+	return memManager->FindSwapPage(unused);
 }
 #endif
 

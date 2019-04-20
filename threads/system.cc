@@ -181,7 +181,7 @@ Initialize(int argc, char **argv)
     CallOnUserAbort(Cleanup);			// if user hits ctl-C
     
 #ifdef USER_PROGRAM
-    machine = new Machine(debugUserProg, LRU);	// this must come first
+    machine = new Machine(debugUserProg, LRU, true);	// this must come first
     memManager = new MemManager(NumPhysPages);
 #endif
 

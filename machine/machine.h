@@ -111,7 +111,7 @@ class Instruction {
 
 class Machine {
   public:
-    Machine(bool debug, TLBSwapPolicy tlbPolicy = LRU);	// Initialize the simulation of the hardware
+    Machine(bool debug, TLBSwapPolicy tlbPolicy = LRU, bool lazyLoadStrategy = false);	// Initialize the simulation of the hardware
 				// for running user programs
     ~Machine();			// De-allocate the data structures
 
@@ -166,8 +166,9 @@ class Machine {
 #ifdef USER_PROGRAM
 #ifdef VM
     int SwapPage(int addr); 	// load page from "disk"(swap file)
-    int LRUSwapPage();			// find a physical page in memory to swap into disk, return physical page number
+    int LRUSwapPage(bool* unused);			// find a physical page in memory to swap into disk, return physical page number
 #endif
+    bool UseLazyLoad() { return lazyLoad; }
     int LazyLoad(int phyPageNum, int vpn);	// load page from disk
 #endif
 
@@ -213,6 +214,7 @@ class Machine {
     int runUntilTime;		// drop back into the debugger when simulated
 				// time reaches this value
     TLBSwapPolicy tlbSwapPolicy;
+    bool lazyLoad;
 };
 
 extern void ExceptionHandler(ExceptionType which);
