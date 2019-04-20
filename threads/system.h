@@ -19,6 +19,7 @@
 #include "stats.h"
 #include "timer.h"
 
+
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
 						// called before anything else
@@ -39,7 +40,9 @@ extern Thread *tid_pointer[MAX_THREADS_NUM]; // thread pointer, match tid to thr
 
 #ifdef USER_PROGRAM
 #include "machine.h"
+#include "memmanager.h"
 extern Machine* machine;	// user program memory and registers
+extern MemManager* memManager; // Memory Manager to alloc/dealloc physical memory
 #endif
 
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB 
@@ -55,6 +58,11 @@ extern SynchDisk   *synchDisk;
 #ifdef NETWORK
 #include "post.h"
 extern PostOffice* postOffice;
+#endif
+
+#ifdef VM
+#include "SwapManager.h"
+extern SwapManager* swapManager; // Swap Manager to
 #endif
 
 #endif // SYSTEM_H

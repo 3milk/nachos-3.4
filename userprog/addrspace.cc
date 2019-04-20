@@ -45,6 +45,120 @@ SwapHeader (NoffHeader *noffH)
 	noffH->uninitData.inFileAddr = WordToHost(noffH->uninitData.inFileAddr);
 }
 
+
+bool
+AddrSpace::AllocAddrSpace(int tid)
+{
+	if(execFile == NULL)
+		return false;
+
+	if(tid < 0 || tid >= MAX_THREADS_NUM)
+		return false;
+	threadId = tid;
+
+	NoffHeader noffH;
+	unsigned int i, size;
+
+	execFile->ReadAt((char *)&noffH, sizeof(noffH), 0);
+	if ((noffH.noffMagic != NOFFMAGIC) &&
+		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
+	   	SwapHeader(&noffH);
+	ASSERT(noffH.noffMagic == NOFFMAGIC);
+
+	// how big is address space?
+	size = noffH.code.size + noffH.initData.size + noffH.uninitData.size
+			+ UserStackSize;	// we need to increase the size
+							// to leave room for the stack
+	numPages = divRoundUp(size, PageSize);
+	size = numPages * PageSize;
+
+	//ASSERT(numPages <= NumPhysPages);		// check we're not trying
+							// to run anything too big --
+							// at least until we have
+							// virtual memory
+
+	// check if we have enough empty physical memory
+	int numEmptyPages = memManager->NumEmpty();
+	int allocedPages = numPages;
+	if(numPages > numEmptyPages) {
+		DEBUG('a', "No enough physical memory, request %d, fact %d\n",
+								numPages, numEmptyPages);
+		// return NULL;
+		printf("AllocAddrSpace: No enough physical memory, request %d, fact %d\n",
+								numPages, numEmptyPages);
+		allocedPages = numEmptyPages;
+	}
+
+	DEBUG('a', "Initializing address space, num pages %d, size %d\n",
+						numPages, size);
+	// first, set up the translation
+	int physicalAddr = 0;
+	pageTable = new TranslationEntry[numPages];
+	for (i = 0; i < allocedPages; i++) {//numPages; i++) {
+		// valid Pages
+		pageTable[i].virtualPage = i;	// for now, virtual page # = first empty phys page #
+		pageTable[i].physicalPage = memManager->FindNext();
+		memManager->SetPhyMemPage(pageTable[i].physicalPage, threadId, i);
+		pageTable[i].valid = TRUE;
+		pageTable[i].use = FALSE;
+		pageTable[i].dirty = FALSE;
+		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on
+						// a separate page, we could set its
+						// pages to be read-only
+		// zero out each page in address space, to zero the unitialized data segment
+		// and the stack segment
+		pageTable[i].lastUseTime = stats->totalTicks;
+		memManager->UpdateLastUsedTime(pageTable[i].physicalPage, pageTable[i].lastUseTime);
+		pageTable[i].swappingPage = -1;
+		physicalAddr = pageTable[i].physicalPage * PageSize;
+		bzero(machine->mainMemory + physicalAddr, PageSize);
+	}
+	for ( ; i < numPages; i++) {
+		// invalid Pages
+		pageTable[i].virtualPage = i;
+		pageTable[i].physicalPage = -1;
+		pageTable[i].valid = FALSE;
+		pageTable[i].use = FALSE;
+		pageTable[i].dirty = FALSE;
+		pageTable[i].readOnly = FALSE;
+		pageTable[i].lastUseTime = 0;
+		pageTable[i].swappingPage = -1;
+	}
+
+
+	// then, copy in the code and data segments into memory
+	// byte by byte
+	int  bufSize =  noffH.code.size > noffH.initData.size ? noffH.code.size : noffH.initData.size;
+	char *buffer = new char[bufSize];
+
+	DEBUG('a', "Initializing code segment, at 0x%x, size %d\n",
+		    		   noffH.code.virtualAddr, noffH.code.size);
+	int va, vpn, offset, pa;
+	int cnt = 0, allocedSize = allocedPages * PageSize;	// just load alloced size in main memory, because code+initData size might be larger than alloced size
+	execFile->ReadAt(buffer, noffH.code.size, noffH.code.inFileAddr);
+	for(i = 0; i < noffH.code.size && cnt < allocedSize; i++, cnt++)
+	{
+		va = noffH.code.virtualAddr + i;
+		vpn = va / PageSize;
+		offset = va % PageSize;
+		pa = pageTable[vpn].physicalPage * PageSize + offset;
+		machine->mainMemory[pa] = buffer[i];
+	}
+
+	DEBUG('a', "Initializing data segment, at 0x%x, size %d\n",
+		   		noffH.initData.virtualAddr, noffH.initData.size);
+	execFile->ReadAt(buffer, noffH.initData.size, noffH.initData.inFileAddr);
+	for(i = 0; i < noffH.initData.size && cnt < allocedSize; i++, cnt++)
+	{
+		va = noffH.initData.virtualAddr + i;
+		vpn = va / PageSize;
+		offset = va % PageSize;
+		pa = pageTable[vpn].physicalPage * PageSize + offset;
+		machine->mainMemory[pa] = buffer[i];
+	}
+	return true;
+}
+
 //----------------------------------------------------------------------
 // AddrSpace::AddrSpace
 // 	Create an address space to run a user program.
@@ -62,6 +176,9 @@ SwapHeader (NoffHeader *noffH)
 
 AddrSpace::AddrSpace(OpenFile *executable)
 {
+	execFile = executable;
+
+	/*
     NoffHeader noffH;
     unsigned int i, size;
 
@@ -115,7 +232,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
         executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
 			noffH.initData.size, noffH.initData.inFileAddr);
     }
-
+*/
 }
 
 //----------------------------------------------------------------------
@@ -126,6 +243,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 AddrSpace::~AddrSpace()
 {
    delete pageTable;
+   delete execFile;
 }
 
 //----------------------------------------------------------------------
@@ -165,11 +283,22 @@ AddrSpace::InitRegisters()
 // 	On a context switch, save any machine state, specific
 //	to this address space, that needs saving.
 //
-//	For now, nothing!
+//	// For now, nothing!
+//  Update phyMemPageTable based on current thread addrspace->pageTable
 //----------------------------------------------------------------------
 
 void AddrSpace::SaveState() 
-{}
+{
+	int vpn = 0;
+	int phyNum = 0;
+	int lastUsedTime = 0;
+	// update phyMemPageTable by pageTable
+	for(int i = 0; i<numPages; i++) {
+		phyNum = pageTable[i].physicalPage;
+		lastUsedTime = pageTable[i].lastUseTime;
+		memManager->UpdateLastUsedTime(phyNum, lastUsedTime);
+	}
+}
 
 //----------------------------------------------------------------------
 // AddrSpace::RestoreState
@@ -181,6 +310,95 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState() 
 {
-    machine->pageTable = pageTable; //tlb?
+    machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
+}
+
+int AddrSpace::GetNumPages()
+{
+	return numPages;
+}
+
+int
+AddrSpace::LazyLoad(int phyPageNum, int vpn)
+{
+	NoffHeader noffH;
+	int startAddr = vpn * PageSize;
+	int phyPosition = phyPageNum * PageSize;
+
+	execFile->ReadAt((char *)&noffH, sizeof(noffH), 0);
+	// virtual mem: code + initData + uninitData + UserStackSize
+	if (startAddr < noffH.code.size) {
+		if(startAddr + PageSize < noffH.code.size)
+		{
+			// load from code
+			execFile->ReadAt(&machine->mainMemory[phyPosition], PageSize, noffH.code.inFileAddr + startAddr);
+			printf("LazyLoad: from code\n");
+		} else {
+			// load from code and initData
+			int codeSize = noffH.code.size - startAddr;
+			execFile->ReadAt(&machine->mainMemory[phyPosition], codeSize, noffH.code.inFileAddr + startAddr);
+			int initDataSize = startAddr + PageSize - noffH.code.size;
+			execFile->ReadAt(&machine->mainMemory[phyPosition + codeSize], initDataSize, noffH.initData.inFileAddr);
+			printf("LazyLoad: from code and initData\n");
+		}
+	} else if(startAddr < noffH.code.size + noffH.initData.size)
+	{
+		// load from initData
+		startAddr -= noffH.code.size;
+		int size = (startAddr + PageSize > noffH.initData.size)
+				? (startAddr + PageSize - noffH.initData.size)
+					: PageSize ;
+		execFile->ReadAt(&machine->mainMemory[phyPosition], size, noffH.initData.inFileAddr + startAddr);
+		printf("LazyLoad: from initData\n");
+		if(size < PageSize)
+		{
+			// part load from uninitData, which equals to 0
+			bzero(machine->mainMemory + (phyPosition + size), PageSize - size);
+		}
+	} else {
+		// load from uninitData or userstack, which equals to 0
+		bzero(machine->mainMemory + phyPosition, PageSize);
+	}
+	return 0;
+}
+
+int
+AddrSpace::getPTESwappingPage(int vpn)
+{
+	if(vpn < 0 || vpn > numPages)
+		return -1;
+	return pageTable[vpn].swappingPage;
+}
+
+void
+AddrSpace::setPTESwappingPage(int vpn, int swappingPage)
+{
+	if(vpn < 0 || vpn > numPages)
+		return ;
+	pageTable[vpn].swappingPage = swappingPage;
+}
+
+bool
+AddrSpace::getPTEValid(int vpn)
+{
+	if(vpn < 0 || vpn > numPages)
+		return -1;
+	return pageTable[vpn].valid;
+}
+
+void
+AddrSpace::setPTEValid(int vpn, bool value)
+{
+	if(vpn < 0 || vpn > numPages)
+		return ;
+	pageTable[vpn].valid = value;
+}
+
+int
+AddrSpace::getPTEPPN(int vpn)
+{
+	if(vpn < 0 || vpn > numPages)
+		return -1;
+	return pageTable[vpn].physicalPage;
 }

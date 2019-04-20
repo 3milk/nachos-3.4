@@ -32,10 +32,10 @@ AS = $(GCCDIR)as
 LD = $(GCCDIR)ld
 
 CPP = gcc -E
-INCDIR =-I../userprog -I../threads
+INCDIR =-I../userprog -I../threads -I /usr/include
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt shell matmult sort tlb_test
+all: halt shell matmult sort tlb_test multi_proc1 multi_proc2 vm_test
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.c > strt.s
@@ -71,4 +71,21 @@ tlb_test.o: tlb_test.c
 tlb_test: tlb_test.o start.o
 	$(LD) $(LDFLAGS) start.o tlb_test.o -o tlb_test.coff
 	../bin/coff2noff tlb_test.coff tlb_test
+	
+multi_proc1.o: multi_proc1.c
+	$(CC) $(CFLAGS) -c multi_proc1.c
+multi_proc1: multi_proc1.o start.o
+	$(LD) $(LDFLAGS) start.o multi_proc1.o -o multi_proc1.coff
+	../bin/coff2noff multi_proc1.coff multi_proc1
+	
+multi_proc2.o: multi_proc2.c
+	$(CC) $(CFLAGS) -c multi_proc2.c
+multi_proc2: multi_proc2.o start.o
+	$(LD) $(LDFLAGS) start.o multi_proc2.o -o multi_proc2.coff
+	../bin/coff2noff multi_proc2.coff multi_proc2
 
+vm_test.o: vm_test.c
+	$(CC) $(CFLAGS) -c vm_test.c
+vm_test: vm_test.o start.o
+	$(LD) $(LDFLAGS) start.o vm_test.o -o vm_test.coff
+	../bin/coff2noff vm_test.coff vm_test

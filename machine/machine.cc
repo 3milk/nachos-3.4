@@ -219,6 +219,32 @@ void Machine::WriteRegister(int num, int value)
 	registers[num] = value;
     }
 
+void
+Machine::PCForward()
+{
+	WriteRegister(PrevPCReg, registers[PCReg]);
+	WriteRegister(PCReg, registers[PCReg] + sizeof(int));
+	WriteRegister(NextPCReg, registers[NextPCReg] + sizeof(int));
+}
+
+
+void
+Machine::InvalidTLB()
+{
+	if(tlb == NULL)
+		return;
+	int i;
+	TranslationEntry* e = NULL;
+	for(i = 0; i<TLBSize; i++)
+	{
+		if(tlb[i].valid) {
+			e = &tlb[i];
+			pageTable[e->virtualPage] = *e;
+			tlb[i].valid = FALSE;
+		}
+	}
+}
+
 
 void
 Machine::UpdateTLB(int idx)
@@ -247,6 +273,7 @@ Machine::UpdateTLB(int idx)
 int
 Machine::TLBSwap(int addr)
 {
+	// in memory then swap TLB
 	switch(tlbSwapPolicy)
 	{
 	case LRU:
@@ -288,16 +315,17 @@ Machine::LRUSwap(int addr)
 		}
 	}
 
+	tlb[idx].valid = TRUE;
 	// test
-	printf("B: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d LRU:%d \n",
-			idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].lastUseTime);
+	//printf("B: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d LRU:%d \n",
+	//		idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].lastUseTime);
 	// update TLB
 	if(!emptyTLB)
 		pageTable[entry->virtualPage] = *entry;
 	*entry = pageTable[vpn];
 	entry->lastUseTime = stats->totalTicks;
-	printf("A: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d LRU:%d\n",
-				idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].lastUseTime);
+	//printf("A: TLB[%d] v:%d vpn:%d ppn:%d u:%d d:%d LRU:%d\n",
+	//			idx, tlb[idx].valid, tlb[idx].virtualPage, tlb[idx].physicalPage, tlb[idx].use, tlb[idx].dirty, tlb[idx].lastUseTime);
 
 	return idx;
 }
@@ -438,3 +466,123 @@ Machine::NRUSwap(int addr)
 
 	return idx;
 }
+
+
+#ifdef USER_PROGRAM
+#ifdef VM
+/*
+ * Function:	called when handling PageFault, swap page into memory
+ * 				0. check if the page is in memory, then no need to swap, return 0
+ * 				1. find a physical page to be swapped into "disk"(swap file)
+ * 				2. swap physical page to "disk", and update the pageTable related to phyPageNum
+ * 				3. if need, update TLB
+ * 				4. find a physical page to be swapped into memory
+ * 				5. check swappingPage:
+ * 					1) if -1: lazy load from disk to memory
+ * 					2) else : swap physical page from "disk"(swap file) to memory
+ * 				6. set pageTable param(physicalPage and valid)
+ * */
+int
+Machine::SwapPage(int addr)
+{
+	// 0. check if page is in memory(valid)
+	// in memory, return 0
+	int vpn = addr/PageSize;
+	if (pageTable[vpn].valid) {
+	    DEBUG('a', "swap page %d: in mem!\n", vpn);
+	   	return 0;
+ 	}
+
+	printf("SwapPage: not in memory start swapping from 'disk'\n");
+	// not in memory, need swapping from "disk"(swap file)
+	// 1. find a physical page to be swapped into "disk"(swap file)
+	int phyPageNum = 0;
+	int virPageNum = 0;
+	int tid = 0;
+	int swappingPage = -1;
+	phyPageNum = LRUSwapPage();
+
+	// 2. swap physical page to "disk"
+	// update the pageTable related to phyPageNum
+	// get phyPageNum --- thread --- addr space --- pageTable --- vpn --- swappingPage
+	virPageNum = memManager->GetVirPageNum(phyPageNum);
+	tid = memManager->GetThreadId(phyPageNum);
+	if(virPageNum < 0 || tid < 0 || tid_pointer[tid]->space == NULL)
+		return -1;
+	swappingPage = swapManager->swapIntoDisk(phyPageNum);
+	tid_pointer[tid]->setPTESwappingPage(virPageNum, swappingPage);// set swappingPage and set valid to false
+	//tid_pointer[tid]->space->pageTable[virPageNum].swappingPage =
+	//	swapManager->swapIntoDisk(phyPageNum);
+	//tid_pointer[tid]->space->pageTable[virPageNum].valid = false;
+	printf("SwapPage: page to swap into 'disk': tid:%d vpn:%d ppn:%d swappage:%d\n", tid, virPageNum, phyPageNum, swappingPage);
+
+	// 3. if need, update TLB
+	for(int i = 0; i<TLBSize; i++)
+	{
+		if(tlb[i].physicalPage == phyPageNum) {
+			tlb[i].valid = FALSE;
+			break;
+		}
+	}
+
+	// 4. find physical page to be swapped into memory
+	swappingPage = pageTable[vpn].swappingPage;
+	if(swappingPage == -1)
+	{
+		// 5. lazy load from disk to memory
+		LazyLoad(phyPageNum, vpn);
+		printf("SwapPage: lazy load from disk to memory\n");
+	} else {
+		// 5. swap physical page from "disk"(swap file) to memory
+		swapManager->swapOutFromDisk(phyPageNum, swappingPage);
+		printf("SwapPage: swap physical page from 'disk''(swap file) to memory\n");
+	}
+
+	// 6. set pageTable param
+	pageTable[vpn].physicalPage = phyPageNum;
+	pageTable[vpn].valid = TRUE;
+
+	return 0;
+}
+
+/* Function: 	 find a physical page in memory to swap into disk,
+ * virtualPageNum:	virtualPageNum
+ * return:		 physical page number
+ *
+ * */
+int
+Machine::LRUSwapPage()
+{
+	// update pageTable by tlb
+	int vpn = 0;
+	int phyNum = 0;
+	int lastUsedTime = 0;
+	for(int i = 0; i<TLBSize; i++) {
+		if(tlb[i].valid) {
+			vpn = tlb[i].virtualPage;
+			pageTable[vpn] = tlb[i];
+		}
+	}
+	// update phyMemPageTable by pageTable
+	for(int i = 0; i<pageTableSize; i++) {
+		if(pageTable[i].valid) {
+			phyNum = pageTable[i].physicalPage;
+			lastUsedTime = pageTable[i].lastUseTime;
+			memManager->UpdateLastUsedTime(phyNum, lastUsedTime);
+		}
+	}
+	return memManager->FindSwapPage();
+}
+#endif
+
+/*
+ * Function: 	load page from file on disk
+ * phyPageNum:	phyPageNum in main memory to store new page
+ * vpn:			virtual page number
+ * */
+int
+Machine::LazyLoad(int phyPageNum, int vpn)
+{
+	return currentThread->LazyLoad(phyPageNum, vpn);
+}
+#endif

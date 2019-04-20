@@ -25,6 +25,10 @@
 #include "system.h"
 #include "syscall.h"
 
+
+static void SysCallPrintHandler();
+static void SysCallExitHandler();
+
 //----------------------------------------------------------------------
 // ExceptionHandler
 // 	Entry point into the Nachos kernel.  Called when a user program
@@ -53,14 +57,71 @@ ExceptionHandler(ExceptionType which)
 {
     int type = machine->ReadRegister(2);
 
-    if ((which == SyscallException) && (type == SC_Halt)) {
-    	DEBUG('a', "Shutdown, initiated by user program.\n");
-    	interrupt->Halt();
+    if ((which == SyscallException)) {
+    	switch(type)
+    	{
+    	case SC_Halt:
+    		DEBUG('a', "Shutdown, initiated by user program.\n");
+    		interrupt->Halt();
+    		break;
+    	case SC_Exit:
+    		SysCallExitHandler();
+    		break;
+    	case SC_Print:
+    		DEBUG('a', "Print, call by user program.\n");
+    		SysCallPrintHandler();
+    		break;
+    	default:
+    		break;
+    	}
     } else if (which == PageFaultException) { // from TLB or PageTable
     	int addr = machine->ReadRegister(BadVAddrReg);
-    	machine->TLBSwap(addr);
+    	// if(machine->TLBSwap(addr) < 0)
+    	//{	// PageFaultException from PageTable
+#ifdef VM
+    		machine->SwapPage(addr); 		// load page from disk or swap file
+#endif
+    		machine->TLBSwap(addr);
+    	//}
 	} else {
 		printf("Unexpected user mode exception %d %d\n", which, type);
 		ASSERT(FALSE);
     }
+}
+
+static void SysCallExitHandler()
+{
+    int exitStatus = machine->ReadRegister(4);
+
+    // Delete thread' address space.
+	currentThread->DeleteAddrSpace();
+
+    // Set thread's exit status.
+    currentThread->setExitStatus(exitStatus);
+
+    // Thread finished.
+	currentThread->Finish();
+}
+
+static void SysCallPrintHandler()
+{
+	int msg = machine->ReadRegister(4);
+	printf("%d\n", msg);
+	/*
+	int size = machine->ReadRegister(5);
+	//printf("%d\n",msg);
+
+	char* buf = new char[size + 5];
+
+	int i = 0;
+	do
+	{
+		machine->ReadMem(msg + i, 1, (int*)&buf[i]);
+	}while(++i<size);//(buf[i++] != '\0');
+
+	printf("%s\n", buf);
+
+	delete buf;
+*/
+	machine->PCForward();
 }

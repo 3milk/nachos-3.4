@@ -329,7 +329,7 @@ void
 Thread::SaveUserState()
 {
     for (int i = 0; i < NumTotalRegs; i++)
-	userRegisters[i] = machine->ReadRegister(i);
+    	userRegisters[i] = machine->ReadRegister(i);
 }
 
 //----------------------------------------------------------------------
@@ -347,6 +347,81 @@ Thread::RestoreUserState()
     for (int i = 0; i < NumTotalRegs; i++)
 	machine->WriteRegister(i, userRegisters[i]);
 }
+
+//----------------------------------------------------------------------
+// Thread::InitUserState
+//	Initialize the CPU state of a user program before executing.
+//
+//	Note that a user program thread has *two* sets of CPU registers --
+//	one for its state while executing user code, one for its state
+//	while executing kernel code.  This routine restores the former.
+//----------------------------------------------------------------------
+void
+Thread::InitUserState()
+{
+	int i;
+	for (i = 0; i < NumTotalRegs; i++)
+		userRegisters[i] = 0;
+
+	// Initial program counter -- must be location of "Start"
+	userRegisters[PCReg] = 0;
+
+	// Need to also tell MIPS where next instruction is, because
+	// of branch delay possibility
+	userRegisters[NextPCReg] = 4;
+
+	// Set the stack register to the end of the address space, where we
+	// allocated the stack; but subtract off a bit, to make sure we don't
+	// accidentally reference off the end!
+	userRegisters[StackReg] = space->GetNumPages() * PageSize - 16;
+	DEBUG('a', "Initializing stack register to %d\n", space->GetNumPages() * PageSize - 16);
+
+}
+
+
+void
+Thread::DeleteAddrSpace()
+{
+	int size = space->GetNumPages();
+	int ppn = -1;
+	for (int i = 0; i < size; i++)
+	{
+		// Clear pages in physical memory.
+		if (space->getPTEValid(i))
+		{
+			ppn = space->getPTEPPN(i);
+			memManager->Clear(ppn);
+			memManager->ZeroPhyMemPage(ppn);
+		}
+#ifdef VM
+		// Clear pages in swapping space.
+		if (space->getPTESwappingPage(i) != -1)
+		{
+			swapManager->Clear(space->getPTESwappingPage(i));
+		}
+#endif
+	}
+}
+
+int
+Thread::LazyLoad(int phyPageNum, int vpn)
+{
+	return space->LazyLoad(phyPageNum, vpn);
+}
+
+void
+Thread::setPTESwappingPage(int vpn, int swappingPage)
+{
+	space->setPTESwappingPage(vpn, swappingPage);
+	setPTEValid(vpn, FALSE);
+}
+
+void
+Thread::setPTEValid(int vpn, int value)
+{
+	space->setPTEValid(vpn, value);
+}
+
 #endif
 
 Thread*

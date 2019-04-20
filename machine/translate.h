@@ -43,6 +43,8 @@ class TranslationEntry {
     int lastUseTime; 	// LRU
     int firstUseTime;		// FIFO
     int clockUse;		// clock
+    int swappingPage; 	// The page number in "disk" (swap file), when valid
+    		//bit is false, this field is valid
 };
 
 #endif

@@ -113,7 +113,8 @@ Scheduler::Run (Thread *nextThread)
 #ifdef USER_PROGRAM			// ignore until running user programs 
     if (currentThread->space != NULL) {	// if this thread is a user program,
         currentThread->SaveUserState(); // save the user's CPU registers
-	currentThread->space->SaveState();
+        machine->InvalidTLB();
+        currentThread->space->SaveState();
     }
 #endif
     
@@ -130,6 +131,13 @@ Scheduler::Run (Thread *nextThread)
     	printf("TEST: Run: set interrput before thread%d runs\n", nextThread->getTid());
     	interrupt->Schedule(RRInterruptHandler, nextThread->getTid(), TimerTicks, TimerInt);
     }
+
+#ifdef USER_PROGRAM
+    if (currentThread->space != NULL) {		// if there is an address space
+        currentThread->RestoreUserState();     // to restore, do it.
+	currentThread->space->RestoreState();
+    }
+#endif
     // This is a machine-dependent assembly language routine defined 
     // in switch.s.  You may have to think
     // a bit to figure out what happens after this, both from the point
@@ -147,13 +155,13 @@ Scheduler::Run (Thread *nextThread)
         delete threadToBeDestroyed;
 	threadToBeDestroyed = NULL;
     }
-    
+/*
 #ifdef USER_PROGRAM
     if (currentThread->space != NULL) {		// if there is an address space
         currentThread->RestoreUserState();     // to restore, do it.
 	currentThread->space->RestoreState();
     }
-#endif
+#endif*/
 }
 
 //----------------------------------------------------------------------

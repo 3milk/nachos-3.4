@@ -21,6 +21,7 @@
 #ifndef MACHINE_H
 #define MACHINE_H
 #define USE_TLB
+#define VM // test
 
 #include "copyright.h"
 #include "utility.h"
@@ -121,6 +122,7 @@ class Machine {
 
     void WriteRegister(int num, int value);
 				// store a value into a CPU register
+    void PCForward();
 
 
 // Routines internal to the machine simulation -- DO NOT call these 
@@ -150,6 +152,9 @@ class Machine {
     void Debugger();		// invoke the user program debugger
     void DumpState();		// print the user CPU and memory state 
 
+    void InvalidTLB(); 		// update pageTable by current TLB
+    						// then, set all TLB item invalid
+    						// called when threads switch
 
     void UpdateTLB(int idx); // when hit in tlb, base on the swap policy,
         						// update the param
@@ -158,6 +163,13 @@ class Machine {
     int FIFOSwap(int addr);
     int ClockSwap(int addr);
     int NRUSwap(int addr);
+#ifdef USER_PROGRAM
+#ifdef VM
+    int SwapPage(int addr); 	// load page from "disk"(swap file)
+    int LRUSwapPage();			// find a physical page in memory to swap into disk, return physical page number
+#endif
+    int LazyLoad(int phyPageNum, int vpn);	// load page from disk
+#endif
 
 // Data structures -- all of these are accessible to Nachos kernel code.
 // "public" for convenience.

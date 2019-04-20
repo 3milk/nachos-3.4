@@ -14,6 +14,17 @@
 #include "addrspace.h"
 #include "synch.h"
 
+/*
+ * Funtion:	start to run userProgram instructions
+ * */
+void
+ForkUserThread(int n)
+{
+	printf("ForkUserThread: %d %s\n", currentThread->getTid(), currentThread->getName());
+	machine->Run();
+}
+
+
 //----------------------------------------------------------------------
 // StartProcess
 // 	Run a user program.  Open the executable, load it into
@@ -30,16 +41,25 @@ StartProcess(char *filename)
 	printf("Unable to open file %s\n", filename);
 	return;
     }
-    space = new AddrSpace(executable);    
-    currentThread->space = space;
 
-    delete executable;			// close file
+    // create thread for user program
+    Thread* userThread = Thread::getInstance(filename);
+    // alloc addrSpace for userThread
+    space = new AddrSpace(executable);
+    space->AllocAddrSpace(userThread->getTid());
+    userThread->space = space;
+    // currentThread->space = space; // origin
+    // init userThread user register (after alloc addrSpace)
+    userThread->InitUserState();
+    userThread->Fork(ForkUserThread, 50);
 
-    space->InitRegisters();		// set the initial register values
-    space->RestoreState();		// load page table register
+    // delete executable;			// close file when addrSpace delete
 
-    machine->Run();			// jump to the user progam
-    ASSERT(FALSE);			// machine->Run never returns;
+    // space->InitRegisters();		// origin // set the initial register values
+    // space->RestoreState();		// origin // load page table register
+
+    // machine->Run();			// origin // jump to the user progam
+    // ASSERT(FALSE);			// machine->Run never returns;
 					// the address space exits
 					// by doing the syscall "exit"
 }

@@ -49,6 +49,8 @@ THREAD_H =../threads/copyright.h\
 	../machine/sysdep.h\
 	../machine/stats.h\
 	../machine/timer.h
+	
+
 
 THREAD_C =../threads/main.cc\
 	../threads/list.cc\
@@ -64,10 +66,11 @@ THREAD_C =../threads/main.cc\
 	../machine/stats.cc\
 	../machine/timer.cc
 
+
 THREAD_S = ../threads/switch.s
 
 THREAD_O =main.o list.o scheduler.o synch.o synchlist.o system.o thread.o \
-	utility.o threadtest.o interrupt.o stats.o sysdep.o timer.o
+	utility.o threadtest.o interrupt.o stats.o sysdep.o timer.o 
 
 USERPROG_H = ../userprog/addrspace.h\
 	../userprog/bitmap.h\
@@ -76,23 +79,25 @@ USERPROG_H = ../userprog/addrspace.h\
 	../machine/console.h\
 	../machine/machine.h\
 	../machine/mipssim.h\
-	../machine/translate.h
+	../machine/translate.h\
+	../userprog/memmanager.h
 
 USERPROG_C = ../userprog/addrspace.cc\
 	../userprog/bitmap.cc\
-	../userprog/exception.cc\
 	../userprog/progtest.cc\
 	../machine/console.cc\
 	../machine/machine.cc\
+	../userprog/exception.cc\
 	../machine/mipssim.cc\
-	../machine/translate.cc
+	../machine/translate.cc\
+	../userprog/memmanager.cc
 
-USERPROG_O = addrspace.o bitmap.o exception.o progtest.o console.o machine.o \
-	mipssim.o translate.o
+USERPROG_O = addrspace.o bitmap.o progtest.o console.o machine.o exception.o \
+	mipssim.o translate.o memmanager.o
 
-VM_H = 
-VM_C = 
-VM_O = 
+VM_H = ../vm/SwapManager.h
+VM_C = ../vm/SwapManager.cc
+VM_O = SwapManager.o
 
 FILESYS_H =../filesys/directory.h \
 	../filesys/filehdr.h\

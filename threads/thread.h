@@ -111,6 +111,8 @@ class Thread {
     char* getStatus() { return ThreadStatusStr[status]; }
     void setStatus(ThreadStatus st) { status = st; }
     char* getName() { return (name); }
+    int getExitStatus() { return (exitStatus); }
+    void setExitStatus(int status) { exitStatus = status; }
     void Print() { printf("%s, ", name); }
 
   private:
@@ -121,6 +123,8 @@ class Thread {
 					// (If NULL, don't deallocate stack)
     ThreadStatus status;		// ready, running or blocked
     char* name;
+
+    int exitStatus;     // Thread's exit status.
 
     void StackAllocate(VoidFunctionPtr func, int arg);
     					// Allocate a stack for thread.
@@ -136,8 +140,15 @@ class Thread {
   public:
     void SaveUserState();		// save user-level register state
     void RestoreUserState();		// restore user-level register state
+    void InitUserState();		// initialize user-level register state
 
     AddrSpace *space;			// User code this thread is running.
+    void DeleteAddrSpace();		// delete addrspace in main memory and swap file
+
+    int LazyLoad(int phyPageNum, int vpn);
+    void setPTESwappingPage(int vpn, int swappingPage);
+  private:
+    void setPTEValid(int vpn, int value);
 #endif
 
 private:

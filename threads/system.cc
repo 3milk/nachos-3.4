@@ -34,12 +34,16 @@ SynchDisk   *synchDisk;
 
 #ifdef USER_PROGRAM	// requires either FILESYS or FILESYS_STUB
 Machine *machine;	// user program memory and registers
+MemManager *memManager;	// memory manager
 #endif
 
 #ifdef NETWORK
 PostOffice *postOffice;
 #endif
 
+#ifdef VM
+SwapManager* swapManager;
+#endif
 
 // External definition, to allow us to take a pointer to this function
 extern void Cleanup();
@@ -152,7 +156,7 @@ Initialize(int argc, char **argv)
     DebugInit(debugArgs);			// initialize DEBUG messages
     stats = new Statistics();			// collect statistics
     interrupt = new Interrupt;			// start up interrupt handling
-    scheduler = new Scheduler(RR);		// initialize the ready queue
+    scheduler = new Scheduler(FIFO);		// initialize the ready queue
     if (randomYield)				// start the timer (if needed)
 	//timer = new Timer(TimerInterruptHandler, 0, randomYield);
    	timer = new Timer(RRTimerInterruptHandler, 0, randomYield);
@@ -178,6 +182,7 @@ Initialize(int argc, char **argv)
     
 #ifdef USER_PROGRAM
     machine = new Machine(debugUserProg, LRU);	// this must come first
+    memManager = new MemManager(NumPhysPages);
 #endif
 
 #ifdef FILESYS
@@ -190,6 +195,10 @@ Initialize(int argc, char **argv)
 
 #ifdef NETWORK
     postOffice = new PostOffice(netname, rely, 10);
+#endif
+
+#ifdef VM
+    swapManager = new SwapManager();
 #endif
 }
 

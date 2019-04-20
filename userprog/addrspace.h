@@ -15,6 +15,7 @@
 
 #include "copyright.h"
 #include "filesys.h"
+#include "translate.h"
 
 #define UserStackSize		1024 	// increase this as necessary!
 
@@ -23,6 +24,8 @@ class AddrSpace {
     AddrSpace(OpenFile *executable);	// Create an address space,
 					// initializing it with the program
 					// stored in the file "executable"
+
+    bool AllocAddrSpace(int tid);	// alloc memory to a specific thread, which thread id is tid
     ~AddrSpace();			// De-allocate an address space
 
     void InitRegisters();		// Initialize user-level CPU registers,
@@ -31,11 +34,20 @@ class AddrSpace {
     void SaveState();			// Save/restore address space-specific
     void RestoreState();		// info on a context switch 
 
+    int GetNumPages();
+    int LazyLoad(int phyPageNum, int vpn);
+    int getPTESwappingPage(int vpn);
+    void setPTESwappingPage(int vpn, int swappingPage);
+    bool getPTEValid(int vpn);
+    void setPTEValid(int vpn, bool value);
+    int getPTEPPN(int vpn);
   private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
+    OpenFile *execFile;
+    int threadId;
 };
 
 #endif // ADDRSPACE_H

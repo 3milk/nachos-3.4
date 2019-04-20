@@ -235,6 +235,17 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
         }
     }*/
 
+    // check virtAddr
+	if (vpn >= pageTableSize) {
+	    DEBUG('a', "virtual page # %d too large for page table size %d!\n",
+	    		virtAddr, pageTableSize);
+	    return AddressErrorException;
+	} else if (!pageTable[vpn].valid) {
+	    DEBUG('a', "virtual page # %d too large for page table size %d!\n",
+	    		virtAddr, pageTableSize);
+	   	return PageFaultException;
+ 	}
+
     // translate version 1: handle exception TLB pageFault
     for (entry = NULL, i = 0; i < TLBSize; i++)
         if (tlb[i].valid && (tlb[i].virtualPage == vpn)) {
@@ -252,32 +263,7 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     }
 
     // translate version 2: no raise exception for TLB pageFault, update TLB here
-/*    for (entry = NULL, i = 0; i < TLBSize; i++)
-        if (tlb[i].valid && (tlb[i].virtualPage == vpn)) {
-           	UpdateTLB(i);
-           	entry = &tlb[i];			// FOUND!
-           	break;
-        }
-    if (entry == NULL) {				// not found
-    	// find in pageTable and update TLB
-        DEBUG('a', "*** no valid TLB entry found for this virtual page!\n");
-        //return PageFaultException;		// really, this is a TLB fault,
-       				// the page may be in memory,
-       				// but not in the TLB
-        if (vpn >= pageTableSize) {
-            DEBUG('a', "virtual page # %d too large for page table size %d!\n",
-            		virtAddr, pageTableSize);
-            return AddressErrorException;
-        } else if (!pageTable[vpn].valid) {
-        	DEBUG('a', "virtual page # %d too large for page table size %d!\n",
-        			virtAddr, pageTableSize);
-            return PageFaultException;
-        }
-        //entry = &pageTable[vpn];
-        int idx = machine->TLBSwap(virtAddr);
-        entry = &tlb[idx];
-    }
-*/
+    // TODO
 
     if (entry->readOnly && writing) {	// trying to write to a read-only page
     	DEBUG('a', "%d mapped read-only at %d in TLB!\n", virtAddr, i);
