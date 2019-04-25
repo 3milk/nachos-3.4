@@ -12,9 +12,11 @@
 #include "copyright.h"
 #include "system.h"
 #include "test_hello.h"
+#include "ProducerAndConsumer.h"
 
 // testnum is set in main.cc
-int testnum = 5;//1;
+int testnum = 7;//1;
+
 
 //----------------------------------------------------------------------
 // SimpleThread
@@ -221,6 +223,43 @@ ThreadTest5()
 // 	Invoke a test routine.
 //----------------------------------------------------------------------
 
+
+void ProducerAndConsumerTest()
+{
+	int cNum = 2;
+	InitPandC();
+	printf("ProducerAndConsumerTest start\n");
+	Thread* p1 = Thread::getInstance("p1");
+	Thread* c1 = Thread::getInstance("c1");
+	Thread* c2 = Thread::getInstance("c2");
+	p1->Fork(Producer, 20);
+	c1->Fork(Consumer, 10);
+	c2->Fork(Consumer, 10);
+	printf("ProducerAndConsumerTest wait\n");
+	for(int i = 0; i<cNum; i++)
+		blockParent->P(); // wait consumers thread finish
+	printf("ProducerAndConsumerTest finish\n");
+	DelePandC();
+}
+
+void ProducerAndConsumerTestCondition()
+{
+	int cNum = 2;
+	InitPandC_Condition();
+	printf("ProducerAndConsumerTest_Condition start\n");
+	Thread* p1 = Thread::getInstance("p1");
+	Thread* c1 = Thread::getInstance("c1");
+	Thread* c2 = Thread::getInstance("c2");
+	p1->Fork(Producer_Condition, 20);
+	c1->Fork(Consumer_Condition, 10);
+	c2->Fork(Consumer_Condition, 10);
+	printf("ProducerAndConsumerTest_Condition wait\n");
+	for(int i = 0; i<cNum; i++)
+		blockParent->P(); // wait consumers thread finish
+	printf("ProducerAndConsumerTest_Condition finish\n");
+	DelePandC_Condition();
+}
+
 void
 ThreadTest()
 {
@@ -239,6 +278,12 @@ ThreadTest()
     	break;
     case 5:
     	ThreadTest5();
+    	break;
+    case 6: // producer and consumer
+    	ProducerAndConsumerTest();
+    	break;
+    case 7:
+    	ProducerAndConsumerTestCondition();
     	break;
     default:
 	printf("No test specified.\n");
