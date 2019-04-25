@@ -107,6 +107,21 @@ MemManager::GetVirPageNum(int phyNum)
 	return phyMemPageTable[phyNum].virtualPage;
 }
 
+int
+MemManager::GetPhyPageNum(int tid, int virNum)
+{
+	int ppn = -1;
+	for(int i = 0; i<pageTableEntryNum; i++) {
+		if(phyMemPageTable[i].threadId == tid &&
+				phyMemPageTable[i].virtualPage == virNum)
+		{
+			ppn = i;
+			break;
+		}
+	}
+	return ppn;
+}
+
 /*
  * Function: 	find a physical page to swap from memory to "disk", based on LRU
  * return:		physical page number

@@ -1,4 +1,4 @@
-/* multi_proc_1.c
+/* multi_proc_2.c
  *    Test program to check multi-process in nachos
  */
 
@@ -15,7 +15,7 @@ main()
 	    Print(i, sizeof(int));
 	}
 
-	return 0;
+	//return 0;
 	//Halt();
-    //Exit(0);		/* and then we're done -- should be 0! */
+    Exit(0);		/* and then we're done -- should be 0! */
 }

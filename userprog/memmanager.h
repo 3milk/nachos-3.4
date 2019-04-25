@@ -42,6 +42,7 @@ class MemManager {
     bool UpdateLastUsedTime(int phyNum, int lut);
     int GetThreadId(int phyNum);
     int GetVirPageNum(int phyNum);
+    int GetPhyPageNum(int tid, int virNum);
 
     int FindSwapPage(bool* unused);	// LRU
 

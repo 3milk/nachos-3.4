@@ -76,13 +76,10 @@ ExceptionHandler(ExceptionType which)
     	}
     } else if (which == PageFaultException) { // from TLB or PageTable
     	int addr = machine->ReadRegister(BadVAddrReg);
-    	// if(machine->TLBSwap(addr) < 0)
-    	//{	// PageFaultException from PageTable
 #ifdef VM
     		machine->SwapPage(addr); 		// load page from disk or swap file
 #endif
     		machine->TLBSwap(addr);
-    	//}
 	} else {
 		printf("Unexpected user mode exception %d %d\n", which, type);
 		ASSERT(FALSE);
