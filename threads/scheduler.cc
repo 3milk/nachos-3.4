@@ -64,10 +64,10 @@ Scheduler::ReadyToRun (Thread *thread)
     	break;
     case PRIORITY:
         readyList->SortedInsert((void *)thread, (int)thread->getPriority());
-        if((thread != currentThread) && (thread->getPriority() < currentThread->getPriority()))
+        /* if((thread != currentThread) && (thread->getPriority() < currentThread->getPriority()))
         { // call from fork and new thread's priority is high
         	currentThread->Yield();
-        }
+        }*/// this will destroy the atomic in Semaphore::V()
         break;
     case RR:
     	thread->setDefaultTimeSlice();

@@ -29,6 +29,7 @@ class Scheduler {
 					// list, if any, and return thread.
     void Run(Thread* nextThread);	// Cause nextThread to start running
     void Print();			// Print contents of ready list
+    SchedulerMode GetMode() { return mode; }
     
   private:
     List *readyList;  		// queue of threads that are ready to run,
