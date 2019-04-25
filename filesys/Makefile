@@ -190,6 +190,31 @@ utility.o: ../threads/utility.cc ../threads/copyright.h \
  /usr/include/i386-linux-gnu/bits/stdio_lim.h \
  /usr/include/i386-linux-gnu/bits/sys_errlist.h /usr/include/string.h \
  /usr/include/xlocale.h ../threads/stdarg.h
+ProducerAndConsumer.o: ../threads/ProducerAndConsumer.cc \
+ ../threads/ProducerAndConsumer.h ../threads/copyright.h \
+ ../threads/synch.h ../threads/thread.h ../threads/utility.h \
+ ../threads/bool.h ../machine/sysdep.h ../threads/copyright.h \
+ /usr/include/stdio.h /usr/include/features.h \
+ /usr/include/i386-linux-gnu/bits/predefs.h \
+ /usr/include/i386-linux-gnu/sys/cdefs.h \
+ /usr/include/i386-linux-gnu/bits/wordsize.h \
+ /usr/include/i386-linux-gnu/gnu/stubs.h \
+ /usr/include/i386-linux-gnu/gnu/stubs-32.h \
+ /usr/lib/gcc/i686-linux-gnu/4.6/include/stddef.h \
+ /usr/include/i386-linux-gnu/bits/types.h \
+ /usr/include/i386-linux-gnu/bits/typesizes.h /usr/include/libio.h \
+ /usr/include/_G_config.h /usr/include/wchar.h ../threads/stdarg.h \
+ /usr/include/i386-linux-gnu/bits/stdio_lim.h \
+ /usr/include/i386-linux-gnu/bits/sys_errlist.h /usr/include/string.h \
+ /usr/include/xlocale.h ../machine/machine.h ../threads/utility.h \
+ ../machine/translate.h ../machine/disk.h ../userprog/addrspace.h \
+ ../filesys/filesys.h ../filesys/openfile.h ../machine/translate.h \
+ ../threads/list.h ../threads/system.h ../threads/scheduler.h \
+ ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
+ ../machine/timer.h ../userprog/memmanager.h ../userprog/bitmap.h \
+ ../filesys/openfile.h ../userprog/addrspace.h ../filesys/synchdisk.h \
+ ../machine/disk.h ../threads/synch.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h
 threadtest.o: ../threads/threadtest.cc ../threads/copyright.h \
  ../threads/system.h ../threads/utility.h ../threads/bool.h \
  ../machine/sysdep.h ../threads/copyright.h /usr/include/stdio.h \
@@ -212,7 +237,8 @@ threadtest.o: ../threads/threadtest.cc ../threads/copyright.h \
  ../machine/timer.h ../userprog/memmanager.h ../userprog/bitmap.h \
  ../filesys/openfile.h ../userprog/addrspace.h ../filesys/synchdisk.h \
  ../machine/disk.h ../threads/synch.h ../vm/SwapManager.h \
- ../userprog/bitmap.h ../threads/test_hello.h
+ ../userprog/bitmap.h ../threads/test_hello.h \
+ ../threads/ProducerAndConsumer.h ../threads/synch.h
 interrupt.o: ../machine/interrupt.cc ../threads/copyright.h \
  ../machine/interrupt.h ../threads/list.h ../threads/copyright.h \
  ../threads/utility.h ../threads/bool.h ../machine/sysdep.h \

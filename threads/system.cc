@@ -156,7 +156,7 @@ Initialize(int argc, char **argv)
     DebugInit(debugArgs);			// initialize DEBUG messages
     stats = new Statistics();			// collect statistics
     interrupt = new Interrupt;			// start up interrupt handling
-    scheduler = new Scheduler(FIFO);		// initialize the ready queue
+    scheduler = new Scheduler(RR);		// initialize the ready queue
     if (randomYield)				// start the timer (if needed)
 	//timer = new Timer(TimerInterruptHandler, 0, randomYield);
    	timer = new Timer(RRTimerInterruptHandler, 0, randomYield);
