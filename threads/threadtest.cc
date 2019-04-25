@@ -13,9 +13,10 @@
 #include "system.h"
 #include "test_hello.h"
 #include "ProducerAndConsumer.h"
+#include "RWLock.h"
 
 // testnum is set in main.cc
-int testnum = 7;//1;
+int testnum = 8;//1;
 
 
 //----------------------------------------------------------------------
@@ -260,6 +261,28 @@ void ProducerAndConsumerTestCondition()
 	DelePandC_Condition();
 }
 
+void ReadAndWriteLockTest()
+{
+	int rwNum = 5;
+	InitReadAndWrite();
+	printf("ReadAndWriteLockTest start\n");
+	Thread* r1 = Thread::getInstance("r1");
+	Thread* r2 = Thread::getInstance("r2");
+	Thread* r3 = Thread::getInstance("r3");
+	Thread* w1 = Thread::getInstance("w1");
+	Thread* w2 = Thread::getInstance("w2");
+	w1->Fork(Writer, 1);
+	r1->Fork(Reader, 1);
+	r2->Fork(Reader, 2);
+	w2->Fork(Writer, 5);
+	r3->Fork(Reader, 3);
+	printf("ReadAndWriteLockTest wait\n");
+	for(int i = 0; i<rwNum; i++)
+		blockParentRW->P(); // wait consumers thread finish
+	printf("ReadAndWriteLockTest finish\n");
+	DeleReadAndWrite();
+}
+
 void
 ThreadTest()
 {
@@ -284,6 +307,9 @@ ThreadTest()
     	break;
     case 7:
     	ProducerAndConsumerTestCondition();
+    	break;
+    case 8:
+    	ReadAndWriteLockTest();
     	break;
     default:
 	printf("No test specified.\n");
