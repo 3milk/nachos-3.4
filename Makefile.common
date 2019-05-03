@@ -47,6 +47,7 @@ THREAD_H =../threads/copyright.h\
 	../threads/utility.h\
 	../threads/ProducerAndConsumer.h\
 	../threads/RWLock.h\
+	../threads/Barrier.h\
 	../machine/interrupt.h\
 	../machine/sysdep.h\
 	../machine/stats.h\
@@ -64,6 +65,7 @@ THREAD_C =../threads/main.cc\
 	../threads/utility.cc\
 	../threads/ProducerAndConsumer.cc\
 	../threads/RWLock.cc\
+	../threads/Barrier.cc\
 	../threads/threadtest.cc\
 	../machine/interrupt.cc\
 	../machine/sysdep.cc\
@@ -74,7 +76,7 @@ THREAD_C =../threads/main.cc\
 THREAD_S = ../threads/switch.s
 
 THREAD_O =main.o list.o scheduler.o synch.o synchlist.o system.o thread.o \
-	utility.o ProducerAndConsumer.o RWLock.o threadtest.o interrupt.o stats.o sysdep.o timer.o
+	utility.o ProducerAndConsumer.o RWLock.o Barrier.o threadtest.o interrupt.o stats.o sysdep.o timer.o
 
 USERPROG_H = ../userprog/addrspace.h\
 	../userprog/bitmap.h\
