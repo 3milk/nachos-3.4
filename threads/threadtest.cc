@@ -14,9 +14,10 @@
 #include "test_hello.h"
 #include "ProducerAndConsumer.h"
 #include "RWLock.h"
+#include "Barrier.h"
 
 // testnum is set in main.cc
-int testnum = 8;//1;
+int testnum = 9;//1;
 
 
 //----------------------------------------------------------------------
@@ -283,6 +284,23 @@ void ReadAndWriteLockTest()
 	DeleReadAndWrite();
 }
 
+void BarrierTest()
+{
+	int threadNum = 5;
+	InitBarrier(threadNum);
+
+	for(int i = 0; i<threadNum; i++)
+	{
+		Thread* t = Thread::getInstance("barrier thread");
+		t->Fork(RoundThread, 5);
+	}
+
+	for(int i = 0; i<threadNum; i++)
+		blockParentBar->P();
+	DeleBarrier();
+
+}
+
 void
 ThreadTest()
 {
@@ -310,6 +328,9 @@ ThreadTest()
     	break;
     case 8:
     	ReadAndWriteLockTest();
+    	break;
+    case 9:
+    	BarrierTest();
     	break;
     default:
 	printf("No test specified.\n");
