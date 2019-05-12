@@ -30,7 +30,13 @@
 OpenFile::OpenFile(int sector)
 { 
     hdr = new FileHeader;
+    //FileHeader* testHeap = new FileHeader; // TODO DELETE ???
+    //delete testHeap;
+    hdrSector = sector;
     hdr->FetchFrom(sector);
+
+    //hdr->setAccessTime();
+    hdr->WriteBack(sector);
     seekPosition = 0;
 }
 
@@ -76,6 +82,9 @@ OpenFile::Read(char *into, int numBytes)
 {
    int result = ReadAt(into, numBytes, seekPosition);
    seekPosition += result;
+
+   hdr->setAccessTime();
+   hdr->WriteBack(hdrSector);
    return result;
 }
 
@@ -84,6 +93,10 @@ OpenFile::Write(char *into, int numBytes)
 {
    int result = WriteAt(into, numBytes, seekPosition);
    seekPosition += result;
+
+   hdr->setAccessTime();
+   hdr->setUpdateTime();
+   hdr->WriteBack(hdrSector);
    return result;
 }
 
@@ -123,9 +136,9 @@ OpenFile::ReadAt(char *into, int numBytes, int position)
     if ((numBytes <= 0) || (position >= fileLength))
     	return 0; 				// check request
     if ((position + numBytes) > fileLength)		
-	numBytes = fileLength - position;
+    	numBytes = fileLength - position;
     DEBUG('f', "Reading %d bytes at %d, from file of length %d.\n", 	
-			numBytes, position, fileLength);
+		numBytes, position, fileLength);
 
     firstSector = divRoundDown(position, SectorSize);
     lastSector = divRoundDown(position + numBytes - 1, SectorSize);
@@ -152,9 +165,9 @@ OpenFile::WriteAt(char *from, int numBytes, int position)
     char *buf;
 
     if ((numBytes <= 0) || (position >= fileLength))
-	return 0;				// check request
+    	return 0;				// check request
     if ((position + numBytes) > fileLength)
-	numBytes = fileLength - position;
+    	numBytes = fileLength - position;
     DEBUG('f', "Writing %d bytes at %d, from file of length %d.\n", 	
 			numBytes, position, fileLength);
 
