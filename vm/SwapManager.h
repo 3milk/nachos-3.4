@@ -3,8 +3,8 @@
 
 #include "bitmap.h"
 
-#define SWAP_SPACE_NAME	"Swapping"
-#define MAX_SWAP_SPACE 	4096
+#define SWAP_SPACE_NAME	"/Swapping"
+#define MAX_SWAP_SPACE 	256//4096
 
 class SwapManager
 {
