@@ -20,8 +20,10 @@
 #include "thread.h"
 #include "disk.h"
 #include "stats.h"
+#include "directory.h"
 
 #define TransferSize 	10 	// make it small, just to be difficult
+
 
 //----------------------------------------------------------------------
 // Copy
@@ -50,9 +52,9 @@ Copy(char *from, char *to)
 // Create a Nachos file of the same length
     DEBUG('f', "Copying file %s, size %d, to file %s\n", from, fileLength, to);
     if (!fileSystem->Create(to, fileLength)) {	 // Create Nachos file
-	printf("Copy: couldn't create output file %s\n", to);
-	fclose(fp);
-	return;
+    	printf("Copy: couldn't create output file %s\n", to);
+    	fclose(fp);
+    	return;
     }
     
     openFile = fileSystem->Open(to);
@@ -61,7 +63,7 @@ Copy(char *from, char *to)
 // Copy the data in TransferSize chunks
     buffer = new char[TransferSize];
     while ((amountRead = fread(buffer, sizeof(char), TransferSize, fp)) > 0)
-	openFile->Write(buffer, amountRead);	
+    	openFile->Write(buffer, amountRead);
     delete [] buffer;
 
 // Close the UNIX and the Nachos files
@@ -108,10 +110,36 @@ Print(char *name)
 //	  PerformanceTest -- overall control, and print out performance #'s
 //----------------------------------------------------------------------
 
-#define FileName 	"TestFile"
+#define FileName 	"/A/B/TestFile"
 #define Contents 	"1234567890"
 #define ContentSize 	strlen(Contents)
-#define FileSize 	((int)(ContentSize * 5000))
+#define FileSize 	((int)(ContentSize * 4000))//5000))
+
+#define DirNameA	"/A"
+#define DirNameB	"/A/B"
+#define	FileNameErr	"/B/TestFile"
+
+static void
+CreateDir(char* dirName)
+{
+	OpenFile *openFile;
+	int i, numBytes;
+
+	printf("Create file directory %s\n", dirName);
+	if (!fileSystem->Create(dirName, 0, FILETYPE_DIR)) { // extend FileSize dynamically
+		printf("Perf test: can't create %s\n", dirName);
+	    return;
+	}
+}
+
+static void
+RemoveDir(char* dirName)
+{
+	if (!fileSystem->Remove(dirName)) {
+	    printf("Perf test: unable to remove %s\n", dirName);
+	    return;
+	}
+}
 
 static void 
 FileWrite()
@@ -121,22 +149,22 @@ FileWrite()
 
     printf("Sequential write of %d byte file, in %d byte chunks\n", 
 	FileSize, ContentSize);
-    if (!fileSystem->Create(FileName, 0)) {
+    if (!fileSystem->Create(FileName, FileSize)) {// 0)) { // extend FileSize dynamically
       printf("Perf test: can't create %s\n", FileName);
       return;
     }
     openFile = fileSystem->Open(FileName);
     if (openFile == NULL) {
-	printf("Perf test: unable to open %s\n", FileName);
-	return;
+    	printf("Perf test: unable to open %s\n", FileName);
+    	return;
     }
     for (i = 0; i < FileSize; i += ContentSize) {
         numBytes = openFile->Write(Contents, ContentSize);
-	if (numBytes < 10) {
-	    printf("Perf test: unable to write %s\n", FileName);
-	    delete openFile;
-	    return;
-	}
+        if (numBytes < 10) {
+        	printf("Perf test: unable to write %s\n", FileName);
+        	delete openFile;
+        	return;
+		}
     }
     delete openFile;	// close file
 }
@@ -152,18 +180,18 @@ FileRead()
 	FileSize, ContentSize);
 
     if ((openFile = fileSystem->Open(FileName)) == NULL) {
-	printf("Perf test: unable to open file %s\n", FileName);
-	delete [] buffer;
-	return;
+    	printf("Perf test: unable to open file %s\n", FileName);
+    	delete [] buffer;
+    	return;
     }
     for (i = 0; i < FileSize; i += ContentSize) {
         numBytes = openFile->Read(buffer, ContentSize);
-	if ((numBytes < 10) || strncmp(buffer, Contents, ContentSize)) {
-	    printf("Perf test: unable to read %s\n", FileName);
-	    delete openFile;
-	    delete [] buffer;
-	    return;
-	}
+        if ((numBytes < 10) || strncmp(buffer, Contents, ContentSize)) {
+        	printf("Perf test: unable to read %s\n", FileName);
+        	delete openFile;
+        	delete [] buffer;
+        	return;
+        }
     }
     delete [] buffer;
     delete openFile;	// close file
@@ -172,14 +200,23 @@ FileRead()
 void
 PerformanceTest()
 {
-    printf("Starting file system performance test:\n");
+	char* dirA = DirNameA;
+	char* dirB = DirNameB;
+    printf("[PerformanceTest] Starting file system performance test:\n");
     stats->Print();
+    CreateDir(dirA);
+    CreateDir(dirB);
     FileWrite();
+    printf("[PerformanceTest] After write\n");
+    fileSystem->List();
+    fileSystem->Print();
     FileRead();
-    if (!fileSystem->Remove(FileName)) {
-      printf("Perf test: unable to remove %s\n", FileName);
-      return;
-    }
+//    if (!fileSystem->Remove(FileName)) {
+//      printf("Perf test: unable to remove %s\n", FileName);
+//      return;
+//    }
+    RemoveDir(dirA);
+    printf("[PerformanceTest] Finish\n");
     stats->Print();
 }
 
