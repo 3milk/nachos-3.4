@@ -30,8 +30,6 @@
 OpenFile::OpenFile(int sector)
 { 
     hdr = new FileHeader;
-    //FileHeader* testHeap = new FileHeader; // TODO DELETE ???
-    //delete testHeap;
     hdrSector = sector;
     hdr->FetchFrom(sector);
 
