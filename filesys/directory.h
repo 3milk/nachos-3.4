@@ -21,6 +21,10 @@
 
 #define FileNameMaxLen 		9	// for simplicity, we assume 
 					// file names are <= 9 characters long
+#define FILETYPE_FILE 0		// define directoryEntry type, file
+#define FILETYPE_DIR 1		// define directoryEntry type, directory
+
+#define CURRENT_DIR 0		// the 1st element in directoryEntryTable is current dir
 
 // The following class defines a "directory entry", representing a file
 // in the directory.  Each entry gives the name of the file, and where
@@ -34,8 +38,13 @@ class DirectoryEntry {
     bool inUse;				// Is this directory entry in use?
     int sector;				// Location on disk to find the 
 					//   FileHeader for this file 
-    char name[FileNameMaxLen + 1];	// Text name for file, with +1 for 
+    char* name;	// Text name for file, with +1 for
 					// the trailing '\0'
+    			// absolute: e.g. /A/B/dir /A/B/file
+    char* path;	// same as name
+    int type;	// directory(1) or file(0)
+
+    void setPath(char* name);
 };
 
 // The following class defines a UNIX-like "directory".  Each entry in
@@ -50,18 +59,22 @@ class DirectoryEntry {
 
 class Directory {
   public:
-    Directory(int size); 		// Initialize an empty directory
+    Directory(int size);		// Initialize an empty directory
 					// with space for "size" files
     ~Directory();			// De-allocate the directory
 
+    void Initialize(int hdrSector, char* name);	// initialize current directory in table[0]
     void FetchFrom(OpenFile *file);  	// Init directory contents from disk
     void WriteBack(OpenFile *file);	// Write modifications to 
 					// directory contents back to disk
 
     int Find(char *name);		// Find the sector number of the 
 					// FileHeader for file: "name"
+    int getFileType(char *name);
+    int getTableSize() { return tableSize; }
+    char* getFileName(int idx);
 
-    bool Add(char *name, int newSector);  // Add a file name into the directory
+    bool Add(char *name, int newSector, int type = FILETYPE_FILE);  // Add a file name into the directory
 
     bool Remove(char *name);		// Remove a file from the directory
 
@@ -75,6 +88,7 @@ class Directory {
     int tableSize;			// Number of directory entries
     DirectoryEntry *table;		// Table of pairs: 
 					// <file name, file header location> 
+    int sector;		// where is the directory file
 
     int FindIndex(char *name);		// Find the index into the directory 
 					//  table corresponding to "name"

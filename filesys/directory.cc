@@ -25,6 +25,15 @@
 #include "filehdr.h"
 #include "directory.h"
 
+
+void
+DirectoryEntry::setPath(char* name)
+{
+	path = name;
+}
+
+
+
 //----------------------------------------------------------------------
 // Directory::Directory
 // 	Initialize a directory; initially, the directory is completely
@@ -33,14 +42,17 @@
 //	to initialize it from disk.
 //
 //	"size" is the number of entries in the directory
+//  at the beginning, size is 1, one directory entry for current dir
 //----------------------------------------------------------------------
 
 Directory::Directory(int size)
 {
     table = new DirectoryEntry[size];
     tableSize = size;
-    for (int i = 0; i < tableSize; i++)
-	table[i].inUse = FALSE;
+    for (int i = 0; i < tableSize; i++) {
+    	table[i].inUse = FALSE;
+    	table[i].name = NULL;
+    }
 }
 
 //----------------------------------------------------------------------
@@ -52,6 +64,16 @@ Directory::~Directory()
 { 
     delete [] table;
 } 
+
+void
+Directory::Initialize(int hdrSector, char* name)
+{
+	table[CURRENT_DIR].inUse = true;
+	table[CURRENT_DIR].sector = hdrSector;
+	table[CURRENT_DIR].type = FILETYPE_DIR;
+	table[CURRENT_DIR].name = name;
+	table[CURRENT_DIR].setPath(name);
+}
 
 //----------------------------------------------------------------------
 // Directory::FetchFrom
@@ -91,8 +113,9 @@ int
 Directory::FindIndex(char *name)
 {
     for (int i = 0; i < tableSize; i++)
-        if (table[i].inUse && !strncmp(table[i].name, name, FileNameMaxLen))
-	    return i;
+        //if (table[i].inUse && !strncmp(table[i].name, name, FileNameMaxLen))
+        if (table[i].inUse && !strcmp(table[i].name, name))
+        	return i;
     return -1;		// name not in directory
 }
 
@@ -115,6 +138,25 @@ Directory::Find(char *name)
     return -1;
 }
 
+int
+Directory::getFileType(char *name)
+{
+	int i = FindIndex(name);
+
+	if (i != -1)
+	return table[i].type;
+	return -1;
+}
+
+char*
+Directory::getFileName(int idx)
+{
+	if (idx < 0 || idx >= tableSize || !table[idx].inUse)
+		return NULL;
+
+	return table[idx].name;
+}
+
 //----------------------------------------------------------------------
 // Directory::Add
 // 	Add a file into the directory.  Return TRUE if successful;
@@ -127,7 +169,7 @@ Directory::Find(char *name)
 //----------------------------------------------------------------------
 
 bool
-Directory::Add(char *name, int newSector)
+Directory::Add(char *name, int newSector, int type)
 { 
     if (FindIndex(name) != -1)
 	return FALSE;
@@ -135,8 +177,11 @@ Directory::Add(char *name, int newSector)
     for (int i = 0; i < tableSize; i++)
         if (!table[i].inUse) {
             table[i].inUse = TRUE;
-            strncpy(table[i].name, name, FileNameMaxLen); 
+            //strncpy(table[i].name, name, FileNameMaxLen);
+            table[i].name = name; // danger?
             table[i].sector = newSector;
+            table[i].type = type;
+            table[i].setPath(name);
         return TRUE;
 	}
     return FALSE;	// no space.  Fix when we have extensible files.
@@ -156,8 +201,9 @@ Directory::Remove(char *name)
     int i = FindIndex(name);
 
     if (i == -1)
-	return FALSE; 		// name not in directory
+    	return FALSE; 		// name not in directory
     table[i].inUse = FALSE;
+
     return TRUE;	
 }
 
@@ -187,11 +233,12 @@ Directory::Print()
 
     printf("Directory contents:\n");
     for (int i = 0; i < tableSize; i++)
-	if (table[i].inUse) {
-	    printf("Name: %s, Sector: %d\n", table[i].name, table[i].sector);
-	    hdr->FetchFrom(table[i].sector);
-	    hdr->Print();
-	}
+    	if (table[i].inUse) {
+    		printf("Name: %s, Type: %d Sector: %d\n", table[i].name, table[i].type, table[i].sector);
+    		printf("Path: %s\n", table[i].path);
+    		hdr->FetchFrom(table[i].sector);
+    		hdr->Print();
+    	}
     printf("\n");
     delete hdr;
 }
