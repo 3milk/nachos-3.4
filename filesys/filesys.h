@@ -37,6 +37,13 @@
 
 #include "copyright.h"
 #include "openfile.h"
+#include "directory.h"
+
+// Sectors containing the file headers for the bitmap of free sectors,
+// and the directory of files.  These file headers are placed in well-known
+// sectors, so that they can be located on boot-up.
+#define FreeMapSector 		0
+#define DirectorySector 	1
 
 #ifdef FILESYS_STUB 		// Temporarily implement file system calls as 
 				// calls to UNIX, until the real file system
@@ -74,7 +81,7 @@ class FileSystem {
 					// the disk, so initialize the directory
     					// and the bitmap of free blocks.
 
-    bool Create(char *name, int initialSize);  	
+    bool Create(char *name, int initialSize, int fileType=FILETYPE_FILE);
 					// Create a file (UNIX creat)
 
     OpenFile* Open(char *name); 	// Open a file (UNIX open)
@@ -85,6 +92,7 @@ class FileSystem {
 
     void Print();			// List all the files and their contents
 
+    int getDirPathSector(char* name, int level, int totalLevel, int dirFileSector=DirectorySector);
   private:
    OpenFile* freeMapFile;		// Bit map of free disk blocks,
 					// represented as a file
