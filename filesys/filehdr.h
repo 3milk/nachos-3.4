@@ -17,8 +17,20 @@
 #include "disk.h"
 #include "bitmap.h"
 
-#define NumDirect 	((SectorSize - 2 * sizeof(int)) / sizeof(int))
-#define MaxFileSize 	(NumDirect * SectorSize)
+
+#define DateLen 24 // Wed Feb 13 15:46:11 2013
+
+//#define NumDirect 	((SectorSize - 2 * sizeof(int) - 3 * (DateLen + 1)) / sizeof(int))
+//#define MaxFileSize 	(NumDirect * SectorSize)
+
+#define NumDirAndIndir ((SectorSize - 2 * sizeof(int) - 3 * (DateLen + 1)) / sizeof(int))
+#define NumDirect 6
+#define NumIndirect (NumDirAndIndir - NumDirect) // 5
+#define NumIndex ((SectorSize - sizeof(int)) / sizeof(short)) // 62
+#define MaxBlockNum (NumDirect + NumIndirect * NumIndex) // 316
+#define MaxFileSize (MaxBlockNum * SectorSize) // 40448B = 39.5M
+
+#define DATA_SECTOR_UNUSED -1 // in dataSectors, when item is not used, it will be set as -1
 
 // The following class defines the Nachos "file header" (in UNIX terms,  
 // the "i-node"), describing where on disk to find all of the data in the file.
@@ -37,9 +49,12 @@
 
 class FileHeader {
   public:
+	FileHeader(){}
+	~FileHeader(){}
     bool Allocate(BitMap *bitMap, int fileSize);// Initialize a file header, 
 						//  including allocating space 
 						//  on disk for the file data
+    bool ExtendAllocate(BitMap *freeMap, int fileSize);
     void Deallocate(BitMap *bitMap);  		// De-allocate this file's 
 						//  data blocks
 
@@ -55,12 +70,45 @@ class FileHeader {
 					// in bytes
 
     void Print();			// Print the contents of the file.
+    void setCreateTime();
+    void setUpdateTime();
+    void setAccessTime();
 
+    bool ExtendAllocate(BitMap *freeMap, int fileSize);
   private:
     int numBytes;			// Number of bytes in the file
     int numSectors;			// Number of data sectors in the file
-    int dataSectors[NumDirect];		// Disk sector numbers for each data 
+    int dataSectors[NumDirAndIndir];//[NumDirect];		// Disk sector numbers for each data
 					// block in the file
+    char createTime[DateLen+1];		// create time
+    char updateTime[DateLen+1];		// last update time
+    char accessTime[DateLen+1];		// last access time
+
+    char* getCurrentTime();
+};
+
+
+/*
+ * one FileIndexTable uses one sector
+ * because an index is represented in short type,
+ * there are total 128/2 = 64 indexes in a table
+ * */
+class FileIndexTable
+{
+	public:
+	FileIndexTable();
+	~FileIndexTable();
+
+	bool Allocate(int sector);
+	void FetchFrom(int sector);
+	void WriteBack(int sector);		// Write modifications to file index file
+
+	int getDataSector(int idx) { ASSERT(idx >=0 && idx < NumIndex); return (int)indexTable[idx]; }
+	int getNumIndexes() { return numIndexes; }
+	private:
+	int numIndexes;				// Number of indexes in the file
+	short indexTable[NumIndex]; // Disk sector numbers for each data
+								// block in the file
 };
 
 #endif // FILEHDR_H

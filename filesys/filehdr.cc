@@ -26,6 +26,7 @@
 
 #include "system.h"
 #include "filehdr.h"
+#include <time.h>
 
 //----------------------------------------------------------------------
 // FileHeader::Allocate
@@ -41,13 +42,50 @@
 bool
 FileHeader::Allocate(BitMap *freeMap, int fileSize)
 { 
+	ASSERT(fileSize <= MaxFileSize);
     numBytes = fileSize;
     numSectors  = divRoundUp(fileSize, SectorSize);
     if (freeMap->NumClear() < numSectors)
-	return FALSE;		// not enough space
+    	return FALSE;		// not enough space
 
-    for (int i = 0; i < numSectors; i++)
-	dataSectors[i] = freeMap->Find();
+    // initialize as unused
+    for (int i = 0; i < NumDirAndIndir; i++)
+   		dataSectors[i] = DATA_SECTOR_UNUSED;
+
+    // alloc used
+    if(numSectors <= NumDirect) {
+    	for (int i = 0; i < numSectors; i++)
+    		dataSectors[i] = freeMap->Find();
+    } else {
+    	// how many index block do we need?
+    	int idxBlockNum = divRoundUp((numSectors - NumDirect), NumIndex);
+    	if(freeMap->NumClear() < numSectors + idxBlockNum)
+    		return FALSE;	// not enough space
+
+    	// alloc direct index
+    	for (int i = 0; i < NumDirect; i++)
+    		dataSectors[i] = freeMap->Find();
+
+    	// alloc indirect index
+    	int leftBlocks = numSectors - NumDirect;
+    	for (int i = 0; i < idxBlockNum; i++, leftBlocks -= NumIndex)
+    	{
+    		FileIndexTable* idxTable = new FileIndexTable();
+    		int sectorToSave = freeMap->Find();
+    		dataSectors[NumDirect + i] = sectorToSave;
+
+    		int numIndex = NumIndex;
+    		if(leftBlocks < NumIndex)
+    			numIndex = leftBlocks;
+    		for (int j = 0; j < numIndex; j++)
+    		{
+    			idxTable->Allocate(freeMap->Find());
+    		}
+
+    		idxTable->WriteBack(sectorToSave);
+    		delete idxTable;
+    	}
+    }
     return TRUE;
 }
 
@@ -58,13 +96,79 @@ FileHeader::Allocate(BitMap *freeMap, int fileSize)
 //	"freeMap" is the bit map of free disk sectors
 //----------------------------------------------------------------------
 
+
+bool
+FileHeader::ExtendAllocate(BitMap *freeMap, int fileSize)
+{
+	// 1. calc original sector number
+	//	  calc needed additional sector number
+	//    can not calc seperately, because the last sector of orig alloc block may not be used totally,
+	//    we need to merge new content with the last orig block
+	int needByte = fileSize;
+	//int needSector = divRoundUp(needByte, SectorSize);
+	int originalByte = FileLength();
+	int originalSector = divRoundUp(originalByte, SectorSize);
+	bool lastOrigFull = originalByte % SectorSize? true: false;
+	int totalByte = needByte + originalByte;
+	int totalSector = divRoundUp(totalByte, SectorSize);
+	int needSector = totalSector - originalSector;
+	if(freeMap->NumClear() < needSector)
+		return FALSE;	// no enough space
+	// TODO need judge sector number with table index
+
+	printf("alloc new sector for extend file: size: %d, length: %d, from last orig: %d\n", needByte, needSector, lastOrigFull);
+	if(totalByte > MaxFileSize)
+	{
+		printf("[FileHeader::ExtendAllocate] ERR	large than MaxFileSize.\n");
+		return FALSE;
+	}
+
+	// 2. last orig is direct index
+	//    1) new end is direct index
+	//    2) new end is indirect index
+	// TODO
+
+	// 3. last orig is indirect index
+	//    1) last index reference block is full
+	//    2) last index reference block is not full
+	// TODO
+}
+
+
 void 
 FileHeader::Deallocate(BitMap *freeMap)
 {
-    for (int i = 0; i < numSectors; i++) {
-	ASSERT(freeMap->Test((int) dataSectors[i]));  // ought to be marked!
-	freeMap->Clear((int) dataSectors[i]);
+//    for (int i = 0; i < numSectors; i++) {
+//    	ASSERT(freeMap->Test((int) dataSectors[i]));  // ought to be marked!
+//		freeMap->Clear((int) dataSectors[i]);
+//    }
+
+	// deallocate direct
+    for (int i = 0; i < NumDirect; i++) {
+    	if(dataSectors[i] == DATA_SECTOR_UNUSED)
+    		return;
+        ASSERT(freeMap->Test((int) dataSectors[i]));  // ought to be marked!
+    	freeMap->Clear((int) dataSectors[i]);
     }
+
+    // deallocate indirect
+    FileIndexTable *idxTable = new FileIndexTable();
+    for (int i = NumDirect; i < NumDirAndIndir; i++) {
+    	if(dataSectors[i] == DATA_SECTOR_UNUSED)
+    	    break;
+    	ASSERT(freeMap->Test((int) dataSectors[i]));  // ought to be marked!
+
+    	int idxSector = (int)dataSectors[i];
+    	idxTable->FetchFrom(idxSector);
+    	int numIndexes = idxTable->getNumIndexes();
+    	for (int j = 0; j < numIndexes; j++) {
+    		ASSERT(freeMap->Test((int)idxTable->getDataSector(j)));  // ought to be marked!
+    		freeMap->Clear((int)idxTable->getDataSector(j));
+    	}
+
+    	freeMap->Clear(idxSector);
+    }
+    delete idxTable;
 }
 
 //----------------------------------------------------------------------
@@ -106,7 +210,21 @@ FileHeader::WriteBack(int sector)
 int
 FileHeader::ByteToSector(int offset)
 {
-    return(dataSectors[offset / SectorSize]);
+    //return(dataSectors[offset / SectorSize]);
+
+	int blockNum = offset / SectorSize;
+	if(blockNum < NumDirect) {
+		return (dataSectors[offset / SectorSize]);
+	} else {
+		int idx = (blockNum - NumDirect) / NumIndex;
+		int idxSector = dataSectors[idx + NumDirect];
+		FileIndexTable* idxTable = new FileIndexTable();
+		idxTable->FetchFrom(idxSector);
+		int idxTableOffset = (blockNum - NumDirect) % NumIndex;
+		int sector = (int)(idxTable->getDataSector(idxTableOffset));
+		delete idxTable;
+		return sector;
+	}
 }
 
 //----------------------------------------------------------------------
@@ -132,19 +250,101 @@ FileHeader::Print()
     int i, j, k;
     char *data = new char[SectorSize];
 
-    printf("FileHeader contents.  File size: %d.  File blocks:\n", numBytes);
-    for (i = 0; i < numSectors; i++)
-	printf("%d ", dataSectors[i]);
+    printf("FileHeader contents.  File size: %d  ", numBytes);
+    printf("createTime: %s. updateTime: %s.  accessTime: %s  \nFile blocks: ", createTime, updateTime, accessTime);
+    for (i = 0; i < NumDirAndIndir; i++)
+    	printf("%d ", dataSectors[i]);
     printf("\nFile contents:\n");
-    for (i = k = 0; i < numSectors; i++) {
-	synchDisk->ReadSector(dataSectors[i], data);
+    for (i = k = 0; i < NumDirect; i++){ //numSectors; i++) {
+    	if(dataSectors[i] == DATA_SECTOR_UNUSED)
+    		break;
+    	synchDisk->ReadSector(dataSectors[i], data);
         for (j = 0; (j < SectorSize) && (k < numBytes); j++, k++) {
-	    if ('\040' <= data[j] && data[j] <= '\176')   // isprint(data[j])
-		printf("%c", data[j]);
+        	if ('\040' <= data[j] && data[j] <= '\176')   // isprint(data[j])
+        		printf("%c", data[j]);
             else
-		printf("\\%x", (unsigned char)data[j]);
-	}
+            	printf("\\%x", (unsigned char)data[j]);
+        }
         printf("\n"); 
     }
+    // TODO idxFileTable and indirect data block
     delete [] data;
+}
+
+
+void
+FileHeader::setCreateTime()
+{
+	strncpy(createTime, getCurrentTime(), DateLen);
+}
+
+void
+FileHeader::setUpdateTime()
+{
+	strncpy(updateTime, getCurrentTime(), DateLen);
+}
+
+void
+FileHeader::setAccessTime()
+{
+	strncpy(accessTime, getCurrentTime(), DateLen);
+}
+
+char*
+FileHeader::getCurrentTime()
+{
+	time_t rawtime;
+	struct tm* timeinfo;
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	return asctime(timeinfo);
+}
+
+
+FileIndexTable::FileIndexTable()
+{
+	numIndexes = 0;
+}
+
+FileIndexTable::~FileIndexTable()
+{}
+
+// find an empty sector based on bitmap
+// save the sector number into dataSector
+// dataSector create fileIndexTable
+// fileIndexTable alloc index for sector and save
+bool
+FileIndexTable::Allocate(int sector)
+{
+	if (numIndexes >= NumIndex)
+		return FALSE;		// not enough space, use other file index table
+
+	// suppose blocks are placed sequentially
+	indexTable[numIndexes++] = sector;
+	return TRUE;
+}
+//----------------------------------------------------------------------
+// FileIndexTable::FetchFrom
+// 	Fetch contents of file index table from disk.
+//
+//	"sector" is the disk sector containing the file index table
+//----------------------------------------------------------------------
+
+void
+FileIndexTable::FetchFrom(int sector)
+{
+    synchDisk->ReadSector(sector, (char *)this);
+}
+
+//----------------------------------------------------------------------
+// FileIndexTable::WriteBack
+// 	Write the modified contents of the file index table back to disk.
+//
+//	"sector" is the disk sector to contain the file index table
+//----------------------------------------------------------------------
+
+void
+FileIndexTable::WriteBack(int sector)
+{
+    synchDisk->WriteSector(sector, (char *)this);
 }
