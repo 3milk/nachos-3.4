@@ -108,30 +108,115 @@ FileHeader::ExtendAllocate(BitMap *freeMap, int fileSize)
 	//int needSector = divRoundUp(needByte, SectorSize);
 	int originalByte = FileLength();
 	int originalSector = divRoundUp(originalByte, SectorSize);
-	bool lastOrigFull = originalByte % SectorSize? true: false;
+	bool lastOrigBlockFull = originalByte % SectorSize? true: false;
 	int totalByte = needByte + originalByte;
 	int totalSector = divRoundUp(totalByte, SectorSize);
 	int needSector = totalSector - originalSector;
 	if(freeMap->NumClear() < needSector)
 		return FALSE;	// no enough space
-	// TODO need judge sector number with table index
 
-	printf("alloc new sector for extend file: size: %d, length: %d, from last orig: %d\n", needByte, needSector, lastOrigFull);
+	printf("alloc new sector for extend file: size: %d, length: %d, from last orig: %d\n", needByte, needSector, lastOrigBlockFull);
 	if(totalByte > MaxFileSize)
 	{
 		printf("[FileHeader::ExtendAllocate] ERR	large than MaxFileSize.\n");
 		return FALSE;
 	}
 
-	// 2. last orig is direct index
-	//    1) new end is direct index
-	//    2) new end is indirect index
-	// TODO
+	if(originalSector < NumDirect) {
+		// 2. last orig is direct index
+		//    1) new end is direct index (if success, update numBytes, numSectors)
+		//    2) new end is indirect index (if success, update numBytes, numSectors)
 
-	// 3. last orig is indirect index
-	//    1) last index reference block is full
-	//    2) last index reference block is not full
-	// TODO
+		// TODO dataSector needing init outside? or here? (use FetchFrom)
+		if(totalSector < NumDirect) {
+			// 1) new end is direct index
+			for(int i = 0; i<needSector; i++) {
+				dataSectors[originalSector + i] = freeMap->Find();
+			}
+			numBytes = totalByte;
+			numSectors = totalSector;
+		} else {
+			// 2) new end is indirect index
+			// how many index block do we need?
+			int idxBlockNum = divRoundUp(totalSector-NumDirect, NumIndex);
+			if((idxBlockNum + needSector) > freeMap->NumClear()) {
+				printf("[FileHeader::ExtendAllocate] ERR	 no enough space.\n");
+				return FALSE;
+			}
+			// alloc direct
+			for(int i = originalSector; i<NumDirect; i++) {
+				dataSectors[i] = freeMap->Find();
+			}
+			// alloc indirect
+			int leftBlocks = needSector - (NumDirect - originalSector);
+			for (int i = 0; i < idxBlockNum; i++, leftBlocks -= NumIndex)
+			{
+				FileIndexTable* idxTable = new FileIndexTable();
+				int sectorToSave = freeMap->Find();
+				dataSectors[NumDirect + i] = sectorToSave;
+
+				int numIndex = NumIndex;
+			    if(leftBlocks < NumIndex)
+			    	numIndex = leftBlocks;
+			    for (int j = 0; j < numIndex; j++)
+			    {
+			    	idxTable->Allocate(freeMap->Find());
+			    }
+
+			    idxTable->WriteBack(sectorToSave);
+			    delete idxTable;
+			}
+			numBytes = totalByte;
+			numSectors = totalSector;
+		}
+	} else {
+		// 3. last orig is indirect index (if success, update numBytes, numSectors)
+		//    1) last index reference block is full
+		//    2) last index reference block is not full
+
+		int origIdxBlockNum = divRoundUp(originalSector-NumDirect, NumIndex);
+		int origBlockUsedInLastIdx = (originalSector-NumDirect) % NumIndex;
+		int origBlockUnusedInLastIdx = NumIndex - origBlockUsedInLastIdx;
+		// how many index block do we need?
+		int idxBlockNum = divRoundUp(needSector-origBlockUnusedInLastIdx, NumIndex);
+		if((idxBlockNum + needSector) > freeMap->NumClear()) {
+			printf("[FileHeader::ExtendAllocate] ERR	 no enough space.\n");
+			return FALSE;
+		}
+
+		// fill unused block in last index
+		int lastIdxBlock = dataSectors[NumDirect + origIdxBlockNum - 1];
+		FileIndexTable* idxTableLast = new FileIndexTable();
+		idxTableLast->FetchFrom(lastIdxBlock);
+		for(int i = 0; i < origBlockUnusedInLastIdx; i++)
+		{
+			idxTableLast->Allocate(freeMap->Find());
+		}
+		idxTableLast->WriteBack(lastIdxBlock);
+		delete idxTableLast;
+
+		// alloc new idx and blocks
+		int leftBlocks = needSector - origBlockUnusedInLastIdx;
+		for (int i = 0; i < idxBlockNum; i++, leftBlocks -= NumIndex)
+		{
+			FileIndexTable* idxTable = new FileIndexTable();
+			int sectorToSave = freeMap->Find();
+			dataSectors[origIdxBlockNum + i] = sectorToSave;
+
+			int numIndex = NumIndex;
+			if(leftBlocks < NumIndex)
+			  	numIndex = leftBlocks;
+			for (int j = 0; j < numIndex; j++)
+			{
+			   	idxTable->Allocate(freeMap->Find());
+			}
+
+			idxTable->WriteBack(sectorToSave);
+			delete idxTable;
+		}
+		numBytes = totalByte;
+		numSectors = totalSector;
+	}
 }
 
 
@@ -340,7 +425,7 @@ FileIndexTable::FetchFrom(int sector)
 // FileIndexTable::WriteBack
 // 	Write the modified contents of the file index table back to disk.
 //
-//	"sector" is the disk sector to contain the file index table
+//	"sector" is the disk sector to contain the file index tablelastIdxBlock
 //----------------------------------------------------------------------
 
 void

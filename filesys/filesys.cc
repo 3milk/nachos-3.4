@@ -244,6 +244,77 @@ FileSystem::Create(char *name, int initialSize, int fileType)
     return success;
 }
 
+/*
+ * find dir
+ * search file in dir, and get its fileheader sector number
+ * get its file header and extend file data block
+ * */
+bool
+FileSystem::ExtendFile(char *name, int extendSize)
+{
+    Directory *directory = new Directory(NumDirEntries);
+    FileHeader *hdr = NULL;
+    BitMap* freeMap = NULL;
+    int sector;
+
+    DEBUG('f', "Extend file %s\n", name);
+
+    int dirPathSector = getDirPathSector(name, 1, 0);
+    if(dirPathSector < 0)
+    {	// no such path in directory
+    	printf("FileSystem::Open: no such path in directory\n");
+      	delete directory;
+       	return FALSE;
+    }
+    OpenFile* dirPathFile = new OpenFile(dirPathSector);
+    directory->FetchFrom(dirPathFile);
+    sector = directory->Find(name);
+    if (sector >= 0) {
+        freeMap = new BitMap(NumSectors);
+        freeMap->FetchFrom(freeMapFile);
+
+    	hdr = new FileHeader;	// name was found in directory
+    	hdr->FetchFrom(sector);
+    	hdr->ExtendAllocate(freeMap, extendSize);
+    	hdr->setAccessTime();
+    	hdr->setUpdateTime();
+    	hdr->WriteBack(sector);
+
+    	freeMap->WriteBack(freeMapFile);
+    }
+    delete directory;				// 1cb0 --> 1c00
+    delete dirPathFile;
+    delete hdr;
+    delete freeMap;
+    return TRUE;				// return NULL if not found
+}
+
+// sector: the location of the file header
+bool
+FileSystem::ExtendFile(int sector, int extendSize)
+{
+    if(sector <= 0)
+    	return FALSE;
+
+	FileHeader *hdr = NULL;
+    BitMap* freeMap = NULL;
+
+    freeMap = new BitMap(NumSectors);
+    freeMap->FetchFrom(freeMapFile);
+
+	hdr = new FileHeader;	// name was found in directory
+	hdr->FetchFrom(sector);
+	hdr->ExtendAllocate(freeMap, extendSize);
+	hdr->setAccessTime();
+	hdr->setUpdateTime();
+	hdr->WriteBack(sector);
+
+	freeMap->WriteBack(freeMapFile);
+    delete hdr;
+    delete freeMap;
+    return TRUE;
+}
+
 //----------------------------------------------------------------------
 // FileSystem::Open
 // 	Open a file for reading and writing.  

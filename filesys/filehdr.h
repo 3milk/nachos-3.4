@@ -74,7 +74,6 @@ class FileHeader {
     void setUpdateTime();
     void setAccessTime();
 
-    bool ExtendAllocate(BitMap *freeMap, int fileSize);
   private:
     int numBytes;			// Number of bytes in the file
     int numSectors;			// Number of data sectors in the file

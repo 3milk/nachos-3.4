@@ -162,10 +162,21 @@ OpenFile::WriteAt(char *from, int numBytes, int position)
     bool firstAligned, lastAligned;
     char *buf;
 
-    if ((numBytes <= 0) || (position >= fileLength))
+    if ((numBytes <= 0))// || (position >= fileLength))
     	return 0;				// check request
-    if ((position + numBytes) > fileLength)
-    	numBytes = fileLength - position;
+    if ((position + numBytes) > fileLength) {
+    	if(fileSystem->ExtendFile(hdrSector, position + numBytes - fileLength)) {
+    		printf("OpenFile::WriteAt: extend file from %d to %d\n", fileLength, hdr->FileLength());
+    		fileLength = hdr->FileLength();
+    	} else if (position < fileLength) {
+    		numBytes = fileLength - position;
+    		printf("OpenFile::WriteAt: extend file fail. only %d bytes can be write\n", numBytes);
+    	} else {
+    		printf("OpenFile::WriteAt: file to write");
+    		return 0;
+    	}
+    }
+
     DEBUG('f', "Writing %d bytes at %d, from file of length %d.\n", 	
 			numBytes, position, fileLength);
 
