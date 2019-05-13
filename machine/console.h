@@ -25,6 +25,7 @@
 
 #include "copyright.h"
 #include "utility.h"
+#include "synch.h"
 
 // The following class defines a hardware console device.
 // Input and output to the device is simulated by reading 
@@ -70,6 +71,21 @@ class Console {
     char incoming;    			// Contains the character to be read,
 					// if there is one available. 
 					// Otherwise contains EOF.
+};
+
+
+class SynchConsole
+{
+  public:
+	SynchConsole(char *readFile, char *writeFile);
+				// initialize the hardware console device
+    ~SynchConsole();			// clean up console emulation
+    void PutChar(char ch);
+    char GetChar();
+  private:
+    Console* console;
+    Lock* readLock;
+    Lock* writeLock;
 };
 
 #endif // CONSOLE_H

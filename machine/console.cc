@@ -40,11 +40,11 @@ Console::Console(char *readFile, char *writeFile, VoidFunctionPtr readAvail,
 		VoidFunctionPtr writeDone, int callArg)
 {
     if (readFile == NULL)
-	readFileNo = 0;					// keyboard = stdin
+    	readFileNo = 0;					// keyboard = stdin
     else
     	readFileNo = OpenForReadWrite(readFile, TRUE);	// should be read-only
     if (writeFile == NULL)
-	writeFileNo = 1;				// display = stdout
+    	writeFileNo = 1;				// display = stdout
     else
     	writeFileNo = OpenForWrite(writeFile);
 
@@ -94,7 +94,7 @@ Console::CheckCharAvail()
 
     // do nothing if character is already buffered, or none to be read
     if ((incoming != EOF) || !PollFile(readFileNo))
-	return;	  
+    	return;
 
     // otherwise, read character and tell user about it
     Read(readFileNo, &c, sizeof(char));
@@ -147,4 +147,46 @@ Console::PutChar(char ch)
     putBusy = TRUE;
     interrupt->Schedule(ConsoleWriteDone, (int)this, ConsoleTime,
 					ConsoleWriteInt);
+}
+
+
+static Semaphore *readAvail;
+static Semaphore *writeDone;
+static void ReadAvail(int arg) { readAvail->V(); }
+static void WriteDone(int arg) { writeDone->V(); }
+
+SynchConsole::SynchConsole(char *readFile, char *writeFile)
+{
+    console = new Console(readFile, writeFile, ReadAvail, WriteDone, 0);
+    readLock = new Lock("read lock");
+    writeLock = new Lock("write lock");
+}
+
+SynchConsole::~SynchConsole()
+{
+	delete console;
+	delete readAvail;
+	delete writeDone;
+	delete readLock;
+	delete writeLock;
+}
+
+void
+SynchConsole::PutChar(char ch)
+{
+	writeLock->Acquire();
+	console->PutChar(ch);
+	writeDone->P();
+	writeLock->Release();
+}
+
+char
+SynchConsole::GetChar()
+{
+	char ch;
+	readLock->Acquire();
+	readAvail->P();
+	ch = console->GetChar();
+	readLock->Release();
+	return ch;
 }
