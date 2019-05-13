@@ -119,6 +119,13 @@ Print(char *name)
 #define DirNameB	"/A/B"
 #define	FileNameErr	"/B/TestFile"
 
+enum FStestCase {
+	FSTEST_FIRST_INDEX_FILE,
+	FSTEST_MULTI_LEVEL_DIRECTORY,
+	FSTEST_EXTEND_FILE_SET,
+	FSTEST_EXTEND_FILE_WRITE,
+};
+
 static void
 CreateDir(char* dirName)
 {
@@ -197,26 +204,108 @@ FileRead()
     delete openFile;	// close file
 }
 
-void
-PerformanceTest()
+// need  #define FileName 	"/TestFile"
+void TestFirstIndexFile()
+{
+	printf("[PerformanceTest] Starting file system performance test:\n");
+	stats->Print();
+	FileWrite();
+	printf("[PerformanceTest] After write\n");
+	fileSystem->List();
+	fileSystem->Print();
+	FileRead();
+    if (!fileSystem->Remove(FileName)) {
+    	printf("Perf test: unable to remove %s\n", FileName);
+	    return;
+	}
+	printf("[PerformanceTest] Finish\n");
+	stats->Print();
+}
+
+// need  #define FileName 	"/A/B/TestFile"
+//		 #define DirNameA	"/A"
+//		 #define DirNameB	"/A/B"
+void TestMultiLevelDirectory()
 {
 	char* dirA = DirNameA;
 	char* dirB = DirNameB;
-    printf("[PerformanceTest] Starting file system performance test:\n");
-    stats->Print();
-    CreateDir(dirA);
-    CreateDir(dirB);
-    FileWrite();
-    printf("[PerformanceTest] After write\n");
-    fileSystem->List();
-    fileSystem->Print();
-    FileRead();
-//    if (!fileSystem->Remove(FileName)) {
-//      printf("Perf test: unable to remove %s\n", FileName);
-//      return;
-//    }
-    RemoveDir(dirA);
-    printf("[PerformanceTest] Finish\n");
-    stats->Print();
+	printf("[PerformanceTest] Starting file system performance test:\n");
+	stats->Print();
+	CreateDir(dirA);
+	CreateDir(dirB);
+	FileWrite();
+	printf("[PerformanceTest] After write\n");
+	fileSystem->List();
+	fileSystem->Print();
+	FileRead();
+	RemoveDir(dirA);
+	printf("[PerformanceTest] Finish\n");
+	stats->Print();
+}
+
+
+// orgSize: the size when file create
+// extendSize: the size to be extendSize
+// e.g. orgSize 10, extendSize 20, finalSize 10 + 20 = 30
+void TestExtendFileSet(char* name, int orgSize, int extendSize)
+{
+	printf("\n\n\n\nPerf: Create file %s \n", name);
+	if(!fileSystem->Create(name, orgSize)) {
+		printf("Perf test: can't create %s\n", FileName);
+		return;
+	}
+	fileSystem->Print();
+	printf("\n\n\n\nPerf: Extend file size from %d to %d\n", orgSize, orgSize + extendSize);
+	if(!fileSystem->ExtendFile(name, extendSize)) {
+		printf("Perf test: extend file size fail: file: %s origSize: %d extendSize: %d\n", name, orgSize, extendSize);
+		return;
+	}
+	fileSystem->Print();
+	printf("Perf finish~\n");
+}
+
+
+// need  #define FileName 	"/TestFile"
+// in FileWrite, create init size is 0
+void TestExtendFileWrite()
+{
+	printf("[PerformanceTest] Starting file system performance test:\n");
+	stats->Print();
+	FileWrite(); // TODO
+	printf("[PerformanceTest] After write\n");
+	fileSystem->List();
+	fileSystem->Print();
+    if (!fileSystem->Remove(FileName)) {
+    	printf("Perf test: unable to remove %s\n", FileName);
+	    return;
+	}
+	printf("[PerformanceTest] Finish\n");
+	stats->Print();
+}
+
+
+void
+PerformanceTest()
+{
+	int testCase = FSTEST_EXTEND_FILE_SET;
+	switch(testCase) {
+	case FSTEST_FIRST_INDEX_FILE:
+		TestFirstIndexFile();
+		break;
+	case FSTEST_MULTI_LEVEL_DIRECTORY:
+		TestMultiLevelDirectory();
+		break;
+	case FSTEST_EXTEND_FILE_SET:
+		{
+			char* fileName = "/FileEx";
+			int fileSize = 200; // (NumDirect + NumIndex) * SectorSize  // (NumDirect + NumIndex + 1) * SectorSize
+			int extendSize = 400; // 600 // NumIndex * SectorSize
+			TestExtendFileSet(fileName, fileSize, extendSize);
+			break;
+		}
+	case FSTEST_EXTEND_FILE_WRITE:
+		TestExtendFileWrite();
+		break;
+	}
 }
 
