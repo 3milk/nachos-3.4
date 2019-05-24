@@ -122,13 +122,13 @@ FileHeader::ExtendAllocate(BitMap *freeMap, int fileSize)
 		return FALSE;
 	}
 
-	if(originalSector < NumDirect) {
+	if(originalSector <= NumDirect) {
 		// 2. last orig is direct index
 		//    1) new end is direct index (if success, update numBytes, numSectors)
 		//    2) new end is indirect index (if success, update numBytes, numSectors)
 
 		// TODO dataSector needing init outside? or here? (use FetchFrom)
-		if(totalSector < NumDirect) {
+		if(totalSector <= NumDirect) {
 			// 1) new end is direct index
 			for(int i = 0; i<needSector; i++) {
 				dataSectors[originalSector + i] = freeMap->Find();
@@ -178,7 +178,9 @@ FileHeader::ExtendAllocate(BitMap *freeMap, int fileSize)
 		int origBlockUsedInLastIdx = (originalSector-NumDirect) % NumIndex;
 		int origBlockUnusedInLastIdx = NumIndex - origBlockUsedInLastIdx;
 		// how many index block do we need?
-		int idxBlockNum = divRoundUp(needSector-origBlockUnusedInLastIdx, NumIndex);
+		int idxBlockNum = 0;
+		if(needSector-origBlockUnusedInLastIdx > 0)
+			idxBlockNum = divRoundUp(needSector-origBlockUnusedInLastIdx, NumIndex);
 		if((idxBlockNum + needSector) > freeMap->NumClear()) {
 			printf("[FileHeader::ExtendAllocate] ERR	 no enough space.\n");
 			return FALSE;
@@ -188,7 +190,9 @@ FileHeader::ExtendAllocate(BitMap *freeMap, int fileSize)
 		int lastIdxBlock = dataSectors[NumDirect + origIdxBlockNum - 1];
 		FileIndexTable* idxTableLast = new FileIndexTable();
 		idxTableLast->FetchFrom(lastIdxBlock);
-		for(int i = 0; i < origBlockUnusedInLastIdx; i++)
+		int needSectorInLatIdx = needSector > origBlockUnusedInLastIdx ?
+				origBlockUnusedInLastIdx : needSector;
+		for(int i = 0; i < needSectorInLatIdx; i++)
 		{
 			idxTableLast->Allocate(freeMap->Find());
 		}
@@ -196,7 +200,8 @@ FileHeader::ExtendAllocate(BitMap *freeMap, int fileSize)
 		delete idxTableLast;
 
 		// alloc new idx and blocks
-		int leftBlocks = needSector - origBlockUnusedInLastIdx;
+		int leftBlocks = needSector > origBlockUnusedInLastIdx ?
+				needSector - origBlockUnusedInLastIdx : 0;
 		for (int i = 0; i < idxBlockNum; i++, leftBlocks -= NumIndex)
 		{
 			FileIndexTable* idxTable = new FileIndexTable();
