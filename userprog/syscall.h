@@ -30,6 +30,7 @@
 #define SC_Fork		9
 #define SC_Yield	10
 #define SC_Print	11
+#define SC_PrintInt 12
 
 #ifndef IN_ASM
 
@@ -95,8 +96,17 @@ void Create(char *name);
  */
 OpenFileId Open(char *name);
 
-/* Write "size" bytes from "buffer" to the open file. */
-void Write(char *buffer, int size, OpenFileId id);
+enum SEEK_POS_U
+{
+	SEEK_POS_U_SET = 0,
+	SEEK_POS_U_CUR = -1,
+	SEEK_POS_U_END = -2
+};
+
+/* Write "size" bytes from "buffer" to the open file.
+ * return success write len
+ * */
+int Write(char *buffer, int size, OpenFileId id, int position);
 
 /* Read "size" bytes from the open file into "buffer".  
  * Return the number of bytes actually read -- if the open file isn't
@@ -104,7 +114,7 @@ void Write(char *buffer, int size, OpenFileId id);
  * characters to read, return whatever is available (for I/O devices, 
  * you should always wait until you can return at least one character).
  */
-int Read(char *buffer, int size, OpenFileId id);
+int Read(char *buffer, int size, OpenFileId id, int position);
 
 /* Close the file, we're done reading and writing to it. */
 void Close(OpenFileId id);
@@ -128,7 +138,8 @@ void Yield();
 /*
  * Print
  */
-void Print();
+void Print(char* msg, int size);
+void PrintInt(int number);
 
 #endif /* IN_ASM */
 
