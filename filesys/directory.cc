@@ -138,6 +138,20 @@ Directory::Find(char *name)
     return -1;
 }
 
+// get filename by the sector number in directory
+char*
+Directory::Find(int sector)
+{
+    for(int i = 0; i<tableSize; i++) {
+    	if(table[i].sector == sector) {
+    		return table[i].name;
+    	}
+    }
+
+    return NULL;
+}
+
+
 int
 Directory::getFileType(char *name)
 {
@@ -148,6 +162,7 @@ Directory::getFileType(char *name)
 	return -1;
 }
 
+// get filename by the index in directory
 char*
 Directory::getFileName(int idx)
 {

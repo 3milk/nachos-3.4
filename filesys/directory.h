@@ -70,6 +70,8 @@ class Directory {
 
     int Find(char *name);		// Find the sector number of the 
 					// FileHeader for file: "name"
+    char* Find(int sector);
+
     int getFileType(char *name);
     int getTableSize() { return tableSize; }
     char* getFileName(int idx);
