@@ -21,6 +21,7 @@
 #include "disk.h"
 #include "stats.h"
 #include "directory.h"
+#include "synch.h"
 
 #define TransferSize 	10 	// make it small, just to be difficult
 
@@ -110,20 +111,27 @@ Print(char *name)
 //	  PerformanceTest -- overall control, and print out performance #'s
 //----------------------------------------------------------------------
 
-#define FileName 	"/A/B/TestFile"
+#define FileName 	"/TestFile"
+//#define FileName 	"/A/B/TestFile"
 #define Contents 	"1234567890"
 #define ContentSize 	strlen(Contents)
-#define FileSize 	((int)(ContentSize * 4000))//5000))
+#define FileSize 	((int)(ContentSize ))//* 4000))//5000))
 
 #define DirNameA	"/A"
 #define DirNameB	"/A/B"
 #define	FileNameErr	"/B/TestFile"
+
+#define W_BUF_SIZE 2*SectorSize
+#define R_BUF_SIZE 10*W_BUF_SIZE
+#define readerYield 	1
 
 enum FStestCase {
 	FSTEST_FIRST_INDEX_FILE,
 	FSTEST_MULTI_LEVEL_DIRECTORY,
 	FSTEST_EXTEND_FILE_SET,
 	FSTEST_EXTEND_FILE_WRITE,
+	FSTEST_MULTI_THREADS_READWRITE,
+	FSTEST_REMOVE
 };
 
 static void
@@ -177,7 +185,7 @@ FileWrite()
 }
 
 static void 
-FileRead()
+FileRead(int tmp = 0)
 {
     OpenFile *openFile;    
     char *buffer = new char[ContentSize];
@@ -283,11 +291,111 @@ void TestExtendFileWrite()
 	stats->Print();
 }
 
+Semaphore* writerFinish = NULL;
+void FileWriter(int start)
+{
+	OpenFile* file = fileSystem->Open(FileName);
+	if(file == NULL) {
+		printf("FileWriter:: open fail: %s\n", FileName);
+		return;
+	}
+	char ch = '0';
+	char buf[W_BUF_SIZE];
+	for(int i = start; i<start+3; i++) {
+		ch = '0' + i;
+		memset(buf, ch, W_BUF_SIZE);
+		file->Write(buf, sizeof(buf), SEEK_POS_END);
+		printf("%s: file length: %d\n", currentThread->getName(), file->Length());
+		currentThread->Yield();
+	}
+	delete file;
+	writerFinish->V();
+}
+
+
+void FileReader(int cnt)
+{
+	OpenFile* file = fileSystem->Open(FileName);
+	if(file == NULL) {
+		printf("FileReader:: open fail: %s\n", FileName);
+		return;
+	}
+	char buf[R_BUF_SIZE];
+	for(int i = 0; i<cnt; i++) {
+		int len = file->Length();
+		if(len >= R_BUF_SIZE) {
+			printf("Reader:: larger than buf size\n");
+			break;
+		}
+		int successLen = file->Read(buf, len, SEEK_POS_SET);
+		buf[successLen] = '\0';
+		printf("%s: file length: %d\n\tfile content %s\n", currentThread->getName(), successLen, buf);
+#ifdef FSTESTREMOVE
+if(readerYield)
+#endif
+		currentThread->Yield();
+	}
+	delete file;
+}
+
+// create file /Testfile
+// w1: write 0,1,
+// w2: write 5,6
+void TestMultiThreadsReadWrite()
+{
+	printf("TestMultiThreadsReadWrite\n");
+	// create file
+	if (!fileSystem->Create(FileName, 0)) {
+		printf("Perf test: can't create %s\n", FileName);
+	    return;
+	}
+
+	writerFinish = new Semaphore("writerFinish", 0);
+	// create reader and writer thread
+	Thread* r1 = Thread::getInstance("Reader 1");
+	Thread* r2 = Thread::getInstance("Reader 2");
+	Thread* r3 = Thread::getInstance("Reader 3");
+	Thread* w1 = Thread::getInstance("Writer 1");
+	Thread* w2 = Thread::getInstance("Writer 2");
+	int readerRound = 3;
+	w1->Fork(FileWriter, 1);
+	r1->Fork(FileReader, readerRound);
+	r2->Fork(FileReader, readerRound);
+	w2->Fork(FileWriter, 5);
+	for(int i = 0; i < 2; i++)
+		writerFinish->P();
+	r3->Fork(FileReader, 1);
+	delete writerFinish;
+}
+
+
+void FileRemove(int tmp)
+{
+	printf("FileRemove\n");
+	fileSystem->Remove(FileName);
+}
+
+// change the file size
+// test case 1: FIFO: r1(read one time, no yield) --- rm
+// no reference then remove directly
+// test case 2: FIFO: r1(read 2 times, yield) --- rm
+// r1 still ref, rm when r1 close the file
+void TestRemove()
+{
+	// create file and write 12345678
+	FileWrite();
+	// create 2 readers and 1 remover thread
+	Thread* r1 = Thread::getInstance("r1");
+	Thread* rm = Thread::getInstance("rm");
+
+	r1->Fork(FileReader, 1); //2
+	rm->Fork(FileRemove, 0);
+}
 
 void
 PerformanceTest()
 {
-	int testCase = FSTEST_EXTEND_FILE_SET;
+	int testCase = FSTEST_REMOVE;//FSTEST_MULTI_THREADS_READWRITE;//FSTEST_EXTEND_FILE_SET;
 	switch(testCase) {
 	case FSTEST_FIRST_INDEX_FILE:
 		TestFirstIndexFile();
@@ -305,6 +413,12 @@ PerformanceTest()
 		}
 	case FSTEST_EXTEND_FILE_WRITE:
 		TestExtendFileWrite();
+		break;
+	case FSTEST_MULTI_THREADS_READWRITE:
+		TestMultiThreadsReadWrite(); // set MakeFile -DFSTEST_MULTI_THREADS_READWRITE
+		break;
+	case FSTEST_REMOVE: // // set MakeFile -DFSTESTREMOVE
+		TestRemove();
 		break;
 	}
 }
