@@ -23,6 +23,15 @@
 #include "copyright.h"
 #include "utility.h"
 
+#define NumDirEntries 		10
+
+enum SEEK_POS
+{
+	SEEK_POS_SET = 0, // start of the file
+	SEEK_POS_CUR = -1,
+	SEEK_POS_END = -2
+};
+
 #ifdef FILESYS_STUB			// Temporarily implement calls to 
 					// Nachos file system as calls to UNIX!
 					// See definitions listed under #else
@@ -63,23 +72,23 @@ class FileHeader;
 
 class OpenFile {
   public:
-    OpenFile(int sector);		// Open a file whose header is located
+    OpenFile(int sector, int parSector = -1);		// Open a file whose header is located
 					// at "sector" on the disk
     ~OpenFile();			// Close the file
 
     void Seek(int position); 		// Set the position from which to 
 					// start reading/writing -- UNIX lseek
 
-    int Read(char *into, int numBytes); // Read/write bytes from the file,
+    int Read(char *into, int numBytes, int position = SEEK_POS_CUR); // Read/write bytes from the file,
 					// starting at the implicit position.
 					// Return the # actually read/written,
 					// and increment position in file.
-    int Write(char *from, int numBytes);
+    int Write(char *from, int numBytes, int position = SEEK_POS_CUR);
 
-    int ReadAt(char *into, int numBytes, int position);
+    int ReadAt(char *into, int numBytes, int position, bool locked = false);
     					// Read/write bytes from the file,
 					// bypassing the implicit position.
-    int WriteAt(char *from, int numBytes, int position);
+    int WriteAt(char *from, int numBytes, int position, bool locked = false);
 
     int Length(); 			// Return the number of bytes in the
 					// file (this interface is simpler 
@@ -90,6 +99,7 @@ class OpenFile {
     FileHeader *hdr;			// Header for this file 
     int seekPosition;			// Current position within the file
     int hdrSector;				// the location on disk of the file header for this file
+    int parHdrSector;			// parent Dir file header TODO
 };
 
 #endif // FILESYS

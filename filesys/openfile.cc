@@ -27,15 +27,18 @@
 //	"sector" -- the location on disk of the file header for this file
 //----------------------------------------------------------------------
 
-OpenFile::OpenFile(int sector)
+OpenFile::OpenFile(int sector, int parSector)
 { 
     hdr = new FileHeader;
     hdrSector = sector;
+    parHdrSector = parSector;
     hdr->FetchFrom(sector);
 
     //hdr->setAccessTime();
     hdr->WriteBack(sector);
     seekPosition = 0;
+
+    fileAccessController->open(sector);
 }
 
 //----------------------------------------------------------------------
@@ -45,6 +48,23 @@ OpenFile::OpenFile(int sector)
 
 OpenFile::~OpenFile()
 {
+	printf("Close file: hdr %d\n", hdrSector);
+    if(fileAccessController->checkRemove(hdrSector)
+    		&& parHdrSector != -1)
+    {
+    	// find filename to remove
+    	Directory *directory = new Directory(NumDirEntries);
+    	OpenFile* dirPathFile = new OpenFile(parHdrSector);
+    	directory->FetchFrom(dirPathFile); // not this, it supposed to be the parentDirPath file
+    	char* name = directory->Find(hdrSector);
+    	if(name!=NULL)
+    		fileSystem->Remove(name);
+    	else
+    		printf("OpenFile::~OpenFile: filename is NULL\n");
+
+    	delete dirPathFile;
+    	delete directory;
+    }
     delete hdr;
 }
 
@@ -76,26 +96,70 @@ OpenFile::Seek(int position)
 //----------------------------------------------------------------------
 
 int
-OpenFile::Read(char *into, int numBytes)
+OpenFile::Read(char *into, int numBytes, int position)
 {
-   int result = ReadAt(into, numBytes, seekPosition);
-   seekPosition += result;
+	if(position < SEEK_POS_END)
+		return -1;
+	fileAccessController->rlock(hdrSector);
+	hdr->FetchFrom(hdrSector);
 
-   hdr->setAccessTime();
-   hdr->WriteBack(hdrSector);
-   return result;
+	switch(position)
+	{
+	case SEEK_POS_SET:
+		this->Seek(0);
+		break;
+	case SEEK_POS_CUR:
+		break;
+	case SEEK_POS_END:
+		this->Seek(hdr->FileLength());
+		break;
+	default:
+		this->Seek(position);
+		break;
+	}
+
+	int result = ReadAt(into, numBytes, seekPosition, true);
+	seekPosition += result;
+
+	hdr->setAccessTime();
+	hdr->WriteBack(hdrSector);
+
+	fileAccessController->runlock(hdrSector);
+	return result;
 }
 
 int
-OpenFile::Write(char *into, int numBytes)
+OpenFile::Write(char *into, int numBytes, int position)
 {
-   int result = WriteAt(into, numBytes, seekPosition);
-   seekPosition += result;
+	if(position < SEEK_POS_END)
+		return -1;
+	fileAccessController->wlock(hdrSector);
+	hdr->FetchFrom(hdrSector);
 
-   hdr->setAccessTime();
-   hdr->setUpdateTime();
-   hdr->WriteBack(hdrSector);
-   return result;
+	switch(position)
+	{
+		case SEEK_POS_SET:
+			this->Seek(0);
+			break;
+		case SEEK_POS_CUR:
+			break;
+		case SEEK_POS_END:
+			this->Seek(hdr->FileLength());
+			break;
+		default:
+			this->Seek(position);
+			break;
+	}
+
+	int result = WriteAt(into, numBytes, seekPosition, true);
+	seekPosition += result;
+
+	hdr->setAccessTime();
+	hdr->setUpdateTime();
+	hdr->WriteBack(hdrSector);
+
+	fileAccessController->wunlock(hdrSector);
+	return result;
 }
 
 //----------------------------------------------------------------------
@@ -125,8 +189,11 @@ OpenFile::Write(char *into, int numBytes)
 //----------------------------------------------------------------------
 
 int
-OpenFile::ReadAt(char *into, int numBytes, int position)
+OpenFile::ReadAt(char *into, int numBytes, int position, bool locked)
 {
+	//if(!locked) // outside is not locked
+	//	fileAccessController->rlock(hdrSector);
+
     int fileLength = hdr->FileLength();
     int i, firstSector, lastSector, numSectors;
     char *buf;
@@ -144,28 +211,43 @@ OpenFile::ReadAt(char *into, int numBytes, int position)
 
     // read in all the full and partial sectors that we need
     buf = new char[numSectors * SectorSize];
-    for (i = firstSector; i <= lastSector; i++)	
+    for (i = firstSector; i <= lastSector; i++)	{
         synchDisk->ReadSector(hdr->ByteToSector(i * SectorSize), 
 					&buf[(i - firstSector) * SectorSize]);
-
+#ifdef FSTEST_MULTI_THREADS_READ_WRITE
+    if(locked)
+        currentThread->Yield();
+#endif
+    }
     // copy the part we want
     bcopy(&buf[position - (firstSector * SectorSize)], into, numBytes);
+
+    //if(!locked) // outside is not locked
+    //	fileAccessController->runlock(hdrSector);
+
     delete [] buf;
     return numBytes;
 }
 
 int
-OpenFile::WriteAt(char *from, int numBytes, int position)
+OpenFile::WriteAt(char *from, int numBytes, int position, bool locked)
 {
+	//if(!locked) // outside is not locked
+	//	fileAccessController->wlock(hdrSector);
+
     int fileLength = hdr->FileLength();
     int i, firstSector, lastSector, numSectors;
     bool firstAligned, lastAligned;
     char *buf;
 
-    if ((numBytes <= 0))// || (position >= fileLength))
+    if ((numBytes <= 0)) {// || (position >= fileLength))
+    	//fileAccessController->wunlock(hdrSector);
     	return 0;				// check request
+    }
     if ((position + numBytes) > fileLength) {
     	if(fileSystem->ExtendFile(hdrSector, position + numBytes - fileLength)) {
+    		// if extend file successfully, we should update hdr here
+    		hdr->FetchFrom(hdrSector);
     		printf("OpenFile::WriteAt: extend file from %d to %d\n", fileLength, hdr->FileLength());
     		fileLength = hdr->FileLength();
     	} else if (position < fileLength) {
@@ -173,6 +255,7 @@ OpenFile::WriteAt(char *from, int numBytes, int position)
     		printf("OpenFile::WriteAt: extend file fail. only %d bytes can be write\n", numBytes);
     	} else {
     		printf("OpenFile::WriteAt: file to write");
+    		//fileAccessController->wunlock(hdrSector);
     		return 0;
     	}
     }
@@ -200,9 +283,18 @@ OpenFile::WriteAt(char *from, int numBytes, int position)
     bcopy(from, &buf[position - (firstSector * SectorSize)], numBytes);
 
 // write modified sectors back
-    for (i = firstSector; i <= lastSector; i++)	
+    for (i = firstSector; i <= lastSector; i++)	{
         synchDisk->WriteSector(hdr->ByteToSector(i * SectorSize), 
 					&buf[(i - firstSector) * SectorSize]);
+#ifdef FSTEST_MULTI_THREADS_READ_WRITE
+    if(locked)
+        currentThread->Yield();
+#endif
+    }
+
+    //if(!locked) // outside is not locked
+    //	fileAccessController->wunlock(hdrSector);
+
     delete [] buf;
     return numBytes;
 }
