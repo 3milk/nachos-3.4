@@ -11,6 +11,7 @@ Barrier(int threshold)
 	cond = new Condition("barrier_condition");
 	nThreshold = threshold; 	// the number of thread to go to next round
 	nThread = 0;	// the number of thread waiting on cond
+	round = 0;
 }
 
 Barrier::
@@ -47,7 +48,6 @@ void InitBarrier(int threshold)
 
 void RoundThread(int round)
 {
-	long delay;
 	int i;
 
 	for (i = 0; i < round; i++) {
