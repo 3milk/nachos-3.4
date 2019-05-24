@@ -40,10 +40,10 @@ PROGRAM = nachos
 THREAD_H =../threads/copyright.h\
 	../threads/list.h\
 	../threads/scheduler.h\
-	../threads/synch.h \
 	../threads/synchlist.h\
 	../threads/system.h\
 	../threads/thread.h\
+	../threads/synch.h \
 	../threads/utility.h\
 	../threads/ProducerAndConsumer.h\
 	../threads/RWLock.h\
@@ -58,10 +58,10 @@ THREAD_H =../threads/copyright.h\
 THREAD_C =../threads/main.cc\
 	../threads/list.cc\
 	../threads/scheduler.cc\
-	../threads/synch.cc \
 	../threads/synchlist.cc\
 	../threads/system.cc\
 	../threads/thread.cc\
+	../threads/synch.cc \
 	../threads/utility.cc\
 	../threads/ProducerAndConsumer.cc\
 	../threads/RWLock.cc\
@@ -75,7 +75,7 @@ THREAD_C =../threads/main.cc\
 
 THREAD_S = ../threads/switch.s
 
-THREAD_O =main.o list.o scheduler.o synch.o synchlist.o system.o thread.o \
+THREAD_O =main.o list.o scheduler.o synchlist.o system.o thread.o synch.o \
 	utility.o ProducerAndConsumer.o RWLock.o Barrier.o threadtest.o interrupt.o stats.o sysdep.o timer.o
 
 USERPROG_H = ../userprog/addrspace.h\
@@ -107,19 +107,21 @@ VM_O = SwapManager.o
 
 FILESYS_H =../filesys/directory.h \
 	../filesys/filehdr.h\
+	../filesys/FileAccessController.h\
 	../filesys/filesys.h \
 	../filesys/openfile.h\
 	../filesys/synchdisk.h\
 	../machine/disk.h
 FILESYS_C =../filesys/directory.cc\
 	../filesys/filehdr.cc\
+	../filesys/FileAccessController.cc\
 	../filesys/filesys.cc\
 	../filesys/fstest.cc\
 	../filesys/openfile.cc\
 	../filesys/synchdisk.cc\
 	../machine/disk.cc
-FILESYS_O =directory.o filehdr.o filesys.o fstest.o openfile.o synchdisk.o\
-	disk.o
+FILESYS_O =directory.o filehdr.o FileAccessController.o filesys.o fstest.o openfile.o synchdisk.o\
+	disk.o 
 
 NETWORK_H = ../network/post.h ../machine/network.h
 NETWORK_C = ../network/nettest.cc ../network/post.cc ../machine/network.cc

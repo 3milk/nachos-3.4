@@ -8,7 +8,7 @@
 # All rights reserved.  See copyright.h for copyright notice and limitation 
 # of liability and disclaimer of warranty provisions.
 
-DEFINES =-DTHREADS -DUSER_PROGRAM -DVM -DFILESYS_NEEDED -DFILESYS
+DEFINES =-DTHREADS -DUSER_PROGRAM -DVM -DFILESYS_NEEDED -DFILESYS -DFSTESTREMOVE
 INCPATH = -I../filesys -I../bin -I../vm -I../userprog -I../threads -I../machine
 HFILES = $(THREAD_H) $(USERPROG_H) $(VM_H) $(FILESYS_H)
 CFILES = $(THREAD_C) $(USERPROG_C) $(VM_C) $(FILESYS_C)
@@ -47,8 +47,10 @@ main.o: ../threads/main.cc ../threads/copyright.h ../threads/utility.h \
  ../threads/scheduler.h ../threads/list.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
  ../userprog/memmanager.h ../userprog/bitmap.h ../filesys/openfile.h \
- ../userprog/addrspace.h ../filesys/synchdisk.h ../machine/disk.h \
- ../threads/synch.h ../vm/SwapManager.h ../userprog/bitmap.h
+ ../userprog/addrspace.h ../filesys/FileAccessController.h \
+ ../threads/synch.h ../threads/RWLock.h ../threads/synch.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h
 list.o: ../threads/list.cc ../threads/copyright.h ../threads/list.h \
  ../threads/utility.h ../threads/bool.h ../machine/sysdep.h \
  ../threads/copyright.h /usr/include/stdio.h /usr/include/features.h \
@@ -85,31 +87,9 @@ scheduler.o: ../threads/scheduler.cc ../threads/copyright.h \
  ../filesys/directory.h ../machine/translate.h ../threads/system.h \
  ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
  ../machine/timer.h ../userprog/memmanager.h ../userprog/bitmap.h \
- ../filesys/openfile.h ../userprog/addrspace.h ../filesys/synchdisk.h \
- ../machine/disk.h ../threads/synch.h ../vm/SwapManager.h \
- ../userprog/bitmap.h
-synch.o: ../threads/synch.cc ../threads/copyright.h ../threads/synch.h \
- ../threads/thread.h ../threads/utility.h ../threads/bool.h \
- ../machine/sysdep.h ../threads/copyright.h /usr/include/stdio.h \
- /usr/include/features.h /usr/include/i386-linux-gnu/bits/predefs.h \
- /usr/include/i386-linux-gnu/sys/cdefs.h \
- /usr/include/i386-linux-gnu/bits/wordsize.h \
- /usr/include/i386-linux-gnu/gnu/stubs.h \
- /usr/include/i386-linux-gnu/gnu/stubs-32.h \
- /usr/lib/gcc/i686-linux-gnu/4.6/include/stddef.h \
- /usr/include/i386-linux-gnu/bits/types.h \
- /usr/include/i386-linux-gnu/bits/typesizes.h /usr/include/libio.h \
- /usr/include/_G_config.h /usr/include/wchar.h ../threads/stdarg.h \
- /usr/include/i386-linux-gnu/bits/stdio_lim.h \
- /usr/include/i386-linux-gnu/bits/sys_errlist.h /usr/include/string.h \
- /usr/include/xlocale.h ../machine/machine.h ../threads/utility.h \
- ../machine/translate.h ../machine/disk.h ../userprog/addrspace.h \
- ../filesys/filesys.h ../filesys/openfile.h ../filesys/directory.h \
- ../machine/translate.h ../threads/list.h ../threads/system.h \
- ../threads/scheduler.h ../machine/interrupt.h ../threads/list.h \
- ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
- ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
+ ../filesys/openfile.h ../userprog/addrspace.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
  ../vm/SwapManager.h ../userprog/bitmap.h
 synchlist.o: ../threads/synchlist.cc ../threads/copyright.h \
  ../threads/synchlist.h ../threads/list.h ../threads/utility.h \
@@ -151,7 +131,8 @@ system.o: ../threads/system.cc ../threads/copyright.h ../threads/system.h \
  ../threads/list.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
  ../vm/SwapManager.h ../userprog/bitmap.h
 thread.o: ../threads/thread.cc ../threads/copyright.h ../threads/thread.h \
  ../threads/utility.h ../threads/bool.h ../machine/sysdep.h \
@@ -174,8 +155,33 @@ thread.o: ../threads/thread.cc ../threads/copyright.h ../threads/thread.h \
  ../threads/list.h ../threads/system.h ../threads/scheduler.h \
  ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
  ../machine/timer.h ../userprog/memmanager.h ../userprog/bitmap.h \
- ../filesys/openfile.h ../userprog/addrspace.h ../filesys/synchdisk.h \
- ../machine/disk.h ../threads/synch.h ../vm/SwapManager.h \
+ ../filesys/openfile.h ../userprog/addrspace.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h
+synch.o: ../threads/synch.cc ../threads/copyright.h ../threads/synch.h \
+ ../threads/thread.h ../threads/utility.h ../threads/bool.h \
+ ../machine/sysdep.h ../threads/copyright.h /usr/include/stdio.h \
+ /usr/include/features.h /usr/include/i386-linux-gnu/bits/predefs.h \
+ /usr/include/i386-linux-gnu/sys/cdefs.h \
+ /usr/include/i386-linux-gnu/bits/wordsize.h \
+ /usr/include/i386-linux-gnu/gnu/stubs.h \
+ /usr/include/i386-linux-gnu/gnu/stubs-32.h \
+ /usr/lib/gcc/i686-linux-gnu/4.6/include/stddef.h \
+ /usr/include/i386-linux-gnu/bits/types.h \
+ /usr/include/i386-linux-gnu/bits/typesizes.h /usr/include/libio.h \
+ /usr/include/_G_config.h /usr/include/wchar.h ../threads/stdarg.h \
+ /usr/include/i386-linux-gnu/bits/stdio_lim.h \
+ /usr/include/i386-linux-gnu/bits/sys_errlist.h /usr/include/string.h \
+ /usr/include/xlocale.h ../machine/machine.h ../threads/utility.h \
+ ../machine/translate.h ../machine/disk.h ../userprog/addrspace.h \
+ ../filesys/filesys.h ../filesys/openfile.h ../filesys/directory.h \
+ ../machine/translate.h ../threads/list.h ../threads/system.h \
+ ../threads/scheduler.h ../machine/interrupt.h ../threads/list.h \
+ ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
+ ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
  ../userprog/bitmap.h
 utility.o: ../threads/utility.cc ../threads/copyright.h \
  ../threads/utility.h ../threads/bool.h ../machine/sysdep.h \
@@ -215,8 +221,9 @@ ProducerAndConsumer.o: ../threads/ProducerAndConsumer.cc \
  ../threads/scheduler.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
- ../vm/SwapManager.h ../userprog/bitmap.h
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h
 RWLock.o: ../threads/RWLock.cc ../threads/RWLock.h ../threads/synch.h \
  ../threads/copyright.h ../threads/thread.h ../threads/utility.h \
  ../threads/bool.h ../machine/sysdep.h ../threads/copyright.h \
@@ -239,8 +246,9 @@ RWLock.o: ../threads/RWLock.cc ../threads/RWLock.h ../threads/synch.h \
  ../threads/scheduler.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
- ../vm/SwapManager.h ../userprog/bitmap.h
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h
 Barrier.o: ../threads/Barrier.cc ../threads/Barrier.h ../threads/synch.h \
  ../threads/copyright.h ../threads/thread.h ../threads/utility.h \
  ../threads/bool.h ../machine/sysdep.h ../threads/copyright.h \
@@ -263,8 +271,9 @@ Barrier.o: ../threads/Barrier.cc ../threads/Barrier.h ../threads/synch.h \
  ../threads/scheduler.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
- ../vm/SwapManager.h ../userprog/bitmap.h
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h
 threadtest.o: ../threads/threadtest.cc ../threads/copyright.h \
  ../threads/system.h ../threads/utility.h ../threads/bool.h \
  ../machine/sysdep.h ../threads/copyright.h /usr/include/stdio.h \
@@ -286,9 +295,10 @@ threadtest.o: ../threads/threadtest.cc ../threads/copyright.h \
  ../threads/list.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
  ../vm/SwapManager.h ../userprog/bitmap.h ../threads/test_hello.h \
- ../threads/ProducerAndConsumer.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/ProducerAndConsumer.h ../threads/RWLock.h \
  ../threads/Barrier.h
 interrupt.o: ../machine/interrupt.cc ../threads/copyright.h \
  ../machine/interrupt.h ../threads/list.h ../threads/copyright.h \
@@ -312,7 +322,8 @@ interrupt.o: ../machine/interrupt.cc ../threads/copyright.h \
  ../threads/scheduler.h ../threads/list.h ../machine/interrupt.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
  ../vm/SwapManager.h ../userprog/bitmap.h
 sysdep.o: ../machine/sysdep.cc ../threads/copyright.h \
  /usr/include/stdio.h /usr/include/features.h \
@@ -382,9 +393,10 @@ sysdep.o: ../machine/sysdep.cc ../threads/copyright.h \
  ../filesys/directory.h ../machine/translate.h ../threads/scheduler.h \
  ../threads/list.h ../machine/interrupt.h ../machine/stats.h \
  ../machine/timer.h ../userprog/memmanager.h ../userprog/bitmap.h \
- ../filesys/openfile.h ../userprog/addrspace.h ../filesys/synchdisk.h \
- ../machine/disk.h ../threads/synch.h ../vm/SwapManager.h \
- ../userprog/bitmap.h
+ ../filesys/openfile.h ../userprog/addrspace.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
+ ../vm/SwapManager.h ../userprog/bitmap.h
 stats.o: ../machine/stats.cc ../threads/copyright.h ../threads/utility.h \
  ../threads/copyright.h ../threads/bool.h ../machine/sysdep.h \
  /usr/include/stdio.h /usr/include/features.h \
@@ -421,8 +433,10 @@ timer.o: ../machine/timer.cc ../threads/copyright.h ../machine/timer.h \
  ../threads/scheduler.h ../threads/list.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
  ../userprog/memmanager.h ../userprog/bitmap.h ../filesys/openfile.h \
- ../userprog/addrspace.h ../filesys/synchdisk.h ../machine/disk.h \
- ../threads/synch.h ../vm/SwapManager.h ../userprog/bitmap.h
+ ../userprog/addrspace.h ../filesys/FileAccessController.h \
+ ../threads/synch.h ../threads/RWLock.h ../threads/synch.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h
 addrspace.o: ../userprog/addrspace.cc ../threads/copyright.h \
  ../threads/system.h ../threads/copyright.h ../threads/utility.h \
  ../threads/bool.h ../machine/sysdep.h /usr/include/stdio.h \
@@ -444,7 +458,8 @@ addrspace.o: ../userprog/addrspace.cc ../threads/copyright.h \
  ../threads/list.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
  ../vm/SwapManager.h ../userprog/bitmap.h ../bin/noff.h
 bitmap.o: ../userprog/bitmap.cc ../threads/copyright.h \
  ../userprog/bitmap.h ../threads/utility.h ../threads/copyright.h \
@@ -482,7 +497,8 @@ progtest.o: ../userprog/progtest.cc ../threads/copyright.h \
  ../threads/list.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
  ../vm/SwapManager.h ../userprog/bitmap.h ../machine/console.h
 console.o: ../machine/console.cc ../threads/copyright.h \
  ../machine/console.h ../threads/utility.h ../threads/copyright.h \
@@ -498,15 +514,17 @@ console.o: ../machine/console.cc ../threads/copyright.h \
  /usr/include/_G_config.h /usr/include/wchar.h ../threads/stdarg.h \
  /usr/include/i386-linux-gnu/bits/stdio_lim.h \
  /usr/include/i386-linux-gnu/bits/sys_errlist.h /usr/include/string.h \
- /usr/include/xlocale.h ../threads/system.h ../threads/utility.h \
- ../threads/thread.h ../machine/machine.h ../machine/translate.h \
+ /usr/include/xlocale.h ../threads/synch.h ../threads/thread.h \
+ ../threads/utility.h ../machine/machine.h ../machine/translate.h \
  ../machine/disk.h ../userprog/addrspace.h ../filesys/filesys.h \
  ../filesys/openfile.h ../filesys/directory.h ../machine/translate.h \
- ../threads/scheduler.h ../threads/list.h ../machine/interrupt.h \
- ../threads/list.h ../machine/stats.h ../machine/timer.h \
- ../userprog/memmanager.h ../userprog/bitmap.h ../filesys/openfile.h \
- ../userprog/addrspace.h ../filesys/synchdisk.h ../machine/disk.h \
- ../threads/synch.h ../vm/SwapManager.h ../userprog/bitmap.h
+ ../threads/list.h ../threads/system.h ../threads/scheduler.h \
+ ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
+ ../machine/timer.h ../userprog/memmanager.h ../userprog/bitmap.h \
+ ../filesys/openfile.h ../userprog/addrspace.h \
+ ../filesys/FileAccessController.h ../threads/RWLock.h ../threads/synch.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h
 machine.o: ../machine/machine.cc ../threads/copyright.h \
  ../machine/machine.h ../threads/utility.h ../threads/copyright.h \
  ../threads/bool.h ../machine/sysdep.h /usr/include/stdio.h \
@@ -528,8 +546,10 @@ machine.o: ../machine/machine.cc ../threads/copyright.h \
  ../threads/scheduler.h ../threads/list.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
  ../userprog/memmanager.h ../userprog/bitmap.h ../filesys/openfile.h \
- ../userprog/addrspace.h ../filesys/synchdisk.h ../machine/disk.h \
- ../threads/synch.h ../vm/SwapManager.h ../userprog/bitmap.h
+ ../userprog/addrspace.h ../filesys/FileAccessController.h \
+ ../threads/synch.h ../threads/RWLock.h ../threads/synch.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h
 exception.o: ../userprog/exception.cc ../threads/copyright.h \
  ../threads/system.h ../threads/copyright.h ../threads/utility.h \
  ../threads/bool.h ../machine/sysdep.h /usr/include/stdio.h \
@@ -551,7 +571,8 @@ exception.o: ../userprog/exception.cc ../threads/copyright.h \
  ../threads/list.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
  ../vm/SwapManager.h ../userprog/bitmap.h ../userprog/syscall.h
 mipssim.o: ../machine/mipssim.cc ../threads/copyright.h \
  ../machine/machine.h ../threads/utility.h ../threads/copyright.h \
@@ -574,9 +595,10 @@ mipssim.o: ../machine/mipssim.cc ../threads/copyright.h \
  ../machine/translate.h ../threads/scheduler.h ../threads/list.h \
  ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
  ../machine/timer.h ../userprog/memmanager.h ../userprog/bitmap.h \
- ../filesys/openfile.h ../userprog/addrspace.h ../filesys/synchdisk.h \
- ../machine/disk.h ../threads/synch.h ../vm/SwapManager.h \
- ../userprog/bitmap.h
+ ../filesys/openfile.h ../userprog/addrspace.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
+ ../vm/SwapManager.h ../userprog/bitmap.h
 translate.o: ../machine/translate.cc ../threads/copyright.h \
  ../machine/machine.h ../threads/utility.h ../threads/copyright.h \
  ../threads/bool.h ../machine/sysdep.h /usr/include/stdio.h \
@@ -598,8 +620,10 @@ translate.o: ../machine/translate.cc ../threads/copyright.h \
  ../threads/scheduler.h ../threads/list.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
  ../userprog/memmanager.h ../userprog/bitmap.h ../filesys/openfile.h \
- ../userprog/addrspace.h ../filesys/synchdisk.h ../machine/disk.h \
- ../threads/synch.h ../vm/SwapManager.h ../userprog/bitmap.h
+ ../userprog/addrspace.h ../filesys/FileAccessController.h \
+ ../threads/synch.h ../threads/RWLock.h ../threads/synch.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h
 memmanager.o: ../userprog/memmanager.cc ../threads/copyright.h \
  ../userprog/memmanager.h ../threads/utility.h ../threads/copyright.h \
  ../threads/bool.h ../machine/sysdep.h /usr/include/stdio.h \
@@ -638,7 +662,8 @@ SwapManager.o: ../vm/SwapManager.cc ../threads/system.h \
  ../threads/list.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
  ../vm/SwapManager.h ../userprog/bitmap.h ../vm/SwapManager.h
 directory.o: ../filesys/directory.cc ../threads/copyright.h \
  ../threads/utility.h ../threads/copyright.h ../threads/bool.h \
@@ -678,12 +703,14 @@ filehdr.o: ../filesys/filehdr.cc ../threads/copyright.h \
  ../threads/list.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
  ../vm/SwapManager.h ../userprog/bitmap.h ../filesys/filehdr.h \
  /usr/include/time.h /usr/include/i386-linux-gnu/bits/time.h \
  /usr/include/i386-linux-gnu/bits/timex.h
-filesys.o: ../filesys/filesys.cc ../threads/copyright.h ../machine/disk.h \
- ../threads/utility.h ../threads/copyright.h ../threads/bool.h \
+FileAccessController.o: ../filesys/FileAccessController.cc \
+ ../threads/copyright.h ../threads/synch.h ../threads/copyright.h \
+ ../threads/thread.h ../threads/utility.h ../threads/bool.h \
  ../machine/sysdep.h /usr/include/stdio.h /usr/include/features.h \
  /usr/include/i386-linux-gnu/bits/predefs.h \
  /usr/include/i386-linux-gnu/sys/cdefs.h \
@@ -696,9 +723,41 @@ filesys.o: ../filesys/filesys.cc ../threads/copyright.h ../machine/disk.h \
  /usr/include/_G_config.h /usr/include/wchar.h ../threads/stdarg.h \
  /usr/include/i386-linux-gnu/bits/stdio_lim.h \
  /usr/include/i386-linux-gnu/bits/sys_errlist.h /usr/include/string.h \
- /usr/include/xlocale.h ../userprog/bitmap.h ../filesys/openfile.h \
- ../filesys/filehdr.h ../filesys/filesys.h ../filesys/openfile.h \
- ../filesys/directory.h
+ /usr/include/xlocale.h ../machine/machine.h ../threads/utility.h \
+ ../machine/translate.h ../machine/disk.h ../userprog/addrspace.h \
+ ../filesys/filesys.h ../filesys/openfile.h ../filesys/directory.h \
+ ../machine/translate.h ../threads/list.h ../threads/system.h \
+ ../threads/scheduler.h ../machine/interrupt.h ../threads/list.h \
+ ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
+ ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
+ ../filesys/FileAccessController.h ../threads/RWLock.h ../threads/synch.h \
+ ../filesys/synchdisk.h ../machine/disk.h ../vm/SwapManager.h \
+ ../userprog/bitmap.h ../filesys/FileAccessController.h
+filesys.o: ../filesys/filesys.cc ../threads/copyright.h \
+ ../threads/system.h ../threads/copyright.h ../threads/utility.h \
+ ../threads/bool.h ../machine/sysdep.h /usr/include/stdio.h \
+ /usr/include/features.h /usr/include/i386-linux-gnu/bits/predefs.h \
+ /usr/include/i386-linux-gnu/sys/cdefs.h \
+ /usr/include/i386-linux-gnu/bits/wordsize.h \
+ /usr/include/i386-linux-gnu/gnu/stubs.h \
+ /usr/include/i386-linux-gnu/gnu/stubs-32.h \
+ /usr/lib/gcc/i686-linux-gnu/4.6/include/stddef.h \
+ /usr/include/i386-linux-gnu/bits/types.h \
+ /usr/include/i386-linux-gnu/bits/typesizes.h /usr/include/libio.h \
+ /usr/include/_G_config.h /usr/include/wchar.h ../threads/stdarg.h \
+ /usr/include/i386-linux-gnu/bits/stdio_lim.h \
+ /usr/include/i386-linux-gnu/bits/sys_errlist.h /usr/include/string.h \
+ /usr/include/xlocale.h ../threads/thread.h ../machine/machine.h \
+ ../threads/utility.h ../machine/translate.h ../machine/disk.h \
+ ../userprog/addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
+ ../filesys/directory.h ../machine/translate.h ../threads/scheduler.h \
+ ../threads/list.h ../machine/interrupt.h ../threads/list.h \
+ ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
+ ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
+ ../vm/SwapManager.h ../userprog/bitmap.h ../filesys/filehdr.h \
+ ../filesys/filesys.h ../filesys/FileAccessController.h
 fstest.o: ../filesys/fstest.cc ../threads/copyright.h \
  ../threads/utility.h ../threads/copyright.h ../threads/bool.h \
  ../machine/sysdep.h /usr/include/stdio.h /usr/include/features.h \
@@ -720,9 +779,10 @@ fstest.o: ../filesys/fstest.cc ../threads/copyright.h \
  ../machine/translate.h ../threads/scheduler.h ../threads/list.h \
  ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
  ../machine/timer.h ../userprog/memmanager.h ../userprog/bitmap.h \
- ../filesys/openfile.h ../userprog/addrspace.h ../filesys/synchdisk.h \
- ../machine/disk.h ../threads/synch.h ../vm/SwapManager.h \
- ../userprog/bitmap.h ../threads/thread.h
+ ../filesys/openfile.h ../userprog/addrspace.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
+ ../vm/SwapManager.h ../userprog/bitmap.h ../threads/thread.h
 openfile.o: ../filesys/openfile.cc ../threads/copyright.h \
  ../filesys/filehdr.h ../machine/disk.h ../threads/utility.h \
  ../threads/copyright.h ../threads/bool.h ../machine/sysdep.h \
@@ -745,8 +805,9 @@ openfile.o: ../filesys/openfile.cc ../threads/copyright.h \
  ../filesys/directory.h ../machine/translate.h ../threads/scheduler.h \
  ../threads/list.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
- ../userprog/bitmap.h ../userprog/addrspace.h ../filesys/synchdisk.h \
- ../threads/synch.h ../vm/SwapManager.h
+ ../userprog/bitmap.h ../userprog/addrspace.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../vm/SwapManager.h
 synchdisk.o: ../filesys/synchdisk.cc ../threads/copyright.h \
  ../filesys/synchdisk.h ../machine/disk.h ../threads/utility.h \
  ../threads/copyright.h ../threads/bool.h ../machine/sysdep.h \
@@ -788,7 +849,8 @@ disk.o: ../machine/disk.cc ../threads/copyright.h ../machine/disk.h \
  ../threads/list.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/memmanager.h \
  ../userprog/bitmap.h ../filesys/openfile.h ../userprog/addrspace.h \
- ../filesys/synchdisk.h ../machine/disk.h ../threads/synch.h \
+ ../filesys/FileAccessController.h ../threads/synch.h ../threads/RWLock.h \
+ ../threads/synch.h ../filesys/synchdisk.h ../machine/disk.h \
  ../vm/SwapManager.h ../userprog/bitmap.h
 # DEPENDENCIES MUST END AT END OF FILE
 # IF YOU PUT STUFF HERE IT WILL GO AWAY
