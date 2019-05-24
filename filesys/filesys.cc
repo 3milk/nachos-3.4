@@ -44,18 +44,19 @@
 // of liability and disclaimer of warranty provisions.
 
 #include "copyright.h"
-
+#include "system.h"
 #include "disk.h"
 #include "bitmap.h"
 #include "filehdr.h"
 #include "filesys.h"
+#include "FileAccessController.h"
 
 
 // Initial file sizes for the bitmap and directory; until the file system
 // supports extensible files, the directory size sets the maximum number 
 // of files that can be loaded onto the disk.
 #define FreeMapFileSize 	(NumSectors / BitsInByte)
-#define NumDirEntries 		10
+//#define NumDirEntries 		10
 #define DirectoryFileSize 	(sizeof(DirectoryEntry) * NumDirEntries)
 
 //----------------------------------------------------------------------
@@ -345,8 +346,8 @@ FileSystem::Open(char *name)
     directory->FetchFrom(dirPathFile);
     //directory->FetchFrom(directoryFile);
     sector = directory->Find(name); 
-    if (sector >= 0) 		
-    	openFile = new OpenFile(sector);	// name was found in directory
+    if (sector >= 0 && !fileAccessController->getToRemove(sector))
+    	openFile = new OpenFile(sector, dirPathSector);	// name was found in directory
     delete directory;				// 1cb0 --> 1c00
     delete dirPathFile;
     return openFile;				// return NULL if not found
@@ -401,6 +402,17 @@ FileSystem::Remove(char *name)
 //    freeMap = new BitMap(NumSectors);
 //    freeMap->FetchFrom(freeMapFile);
 
+    if(!fileAccessController->remove(sector))
+    {
+    	// some threads still refer this file, delay to remove
+		// here we did not implement to remove atomically
+    	printf("the reference cnt is not 0, remove later...\n");
+    	delete directory;
+    	delete dirPathFile;
+    	return FALSE;
+    }
+
+    printf("the reference cnt is 0, try to remove %s...\n", name);
     if(fileType == FILETYPE_FILE) {
     	fileHdr = new FileHeader;
     	fileHdr->FetchFrom(sector);
@@ -411,38 +423,44 @@ FileSystem::Remove(char *name)
     	fileHdr->Deallocate(freeMap);  		// remove data blocks
     	freeMap->Clear(sector);			// remove header block
     	directory->Remove(name);
-
     	freeMap->WriteBack(freeMapFile);		// flush to disk
     	directory->WriteBack(dirPathFile);        // flush to disk
+
     	delete fileHdr;
     	delete directory;
     	delete dirPathFile;
     	delete freeMap;
-    	printf("FileSystem::Remove: file %s\n", name);
+
+    	fileAccessController->finishRemove(sector);
+    	printf("FileSystem::Remove: file %s!\n", name);
 	} else if (fileType == FILETYPE_DIR) {
 		Directory* dirDel = new Directory(NumDirEntries);
 		OpenFile* dirDelFile = new OpenFile(sector);
 		dirDel->FetchFrom(dirDelFile);
 		int dirEntryNum = dirDel->getTableSize();
+		bool allSubFileDel = true;
 		for(int i = 1; i< dirEntryNum; i++) // 0 is current path, not remove
 		{
 			char* subFile = dirDel->getFileName(i);
 			if(subFile != NULL)
-				Remove(subFile);
+				allSubFileDel = allSubFileDel && Remove(subFile);
 		}
 
-		fileHdr = new FileHeader;
-    	fileHdr->FetchFrom(sector);
+		// if all subfile has been removed, then deallocate file hdr ...
+		if(allSubFileDel) {
+			fileHdr = new FileHeader;
+			fileHdr->FetchFrom(sector);
 
-    	freeMap = new BitMap(NumSectors);
-    	freeMap->FetchFrom(freeMapFile);
+			freeMap = new BitMap(NumSectors);
+			freeMap->FetchFrom(freeMapFile);
 
-    	fileHdr->Deallocate(freeMap);  		// remove data blocks
-    	freeMap->Clear(sector);			// remove header block
-    	directory->Remove(name);
+			fileHdr->Deallocate(freeMap);  		// remove data blocks
+			freeMap->Clear(sector);			// remove header block
+			directory->Remove(name);
+		}
 
-    	freeMap->WriteBack(freeMapFile);		// flush to disk
-    	directory->WriteBack(dirPathFile);        // flush to disk
+		freeMap->WriteBack(freeMapFile);		// flush to disk
+	   	directory->WriteBack(dirPathFile);        // flush to disk
 
 		delete dirDelFile;
 		delete dirDel;
@@ -450,6 +468,14 @@ FileSystem::Remove(char *name)
 		delete directory;
 		delete dirPathFile;
 		delete freeMap;
+
+		if(!allSubFileDel)
+		{
+			printf("FileSystem::Remove: delay dir %s and its sub files\n", name);
+			return FALSE;
+		}
+
+		fileAccessController->finishRemove(sector);
 		printf("FileSystem::Remove: dir %s and its sub files\n", name);
 	}
 //	freeMap->Clear(sector);			// remove header block
