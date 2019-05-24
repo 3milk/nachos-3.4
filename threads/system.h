@@ -7,7 +7,6 @@
 
 #ifndef SYSTEM_H
 #define SYSTEM_H
-
 #define MAX_THREADS_NUM 128
 #define USER_KERNEL -1
 
@@ -46,6 +45,8 @@ extern MemManager* memManager; // Memory Manager to alloc/dealloc physical memor
 #endif
 
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB 
+#include "FileAccessController.h"
+extern FileAccessController *fileAccessController;
 #include "filesys.h"
 extern FileSystem  *fileSystem;
 #endif

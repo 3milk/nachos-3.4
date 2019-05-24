@@ -25,6 +25,7 @@ int tid_flag[MAX_THREADS_NUM]; // thread ID flag, 0 for empty, 1 for occupied
 Thread *tid_pointer[MAX_THREADS_NUM]; // thread pointer, match tid to thread pointer
 
 #ifdef FILESYS_NEEDED
+FileAccessController *fileAccessController;
 FileSystem  *fileSystem;
 #endif
 
@@ -190,6 +191,7 @@ Initialize(int argc, char **argv)
 #endif
 
 #ifdef FILESYS_NEEDED
+    fileAccessController = new FileAccessController();
     fileSystem = new FileSystem(format);
 #endif
 
