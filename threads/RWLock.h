@@ -1,4 +1,6 @@
 // Solution of 1st type read&write problem
+#ifndef RWLOCK_H
+#define RWLOCK_H
 
 #include "synch.h"
 
@@ -28,3 +30,5 @@ void InitReadAndWrite();
 void Reader(int id);
 void Writer(int id);
 void DeleReadAndWrite();
+
+#endif

@@ -22,11 +22,17 @@ RWLock::~RWLock()
 void
 RWLock::rlock()
 {
+#ifdef FSTEST_MULTI_THREADS_READ_WRITE
+	printf("%s try to aquire rlock...\n", currentThread->getName());
+#endif
 	mutex->Acquire();
 	readerCnt++;
 	if(readerCnt == 1)
 		wrtLock->P();
 	mutex->Release();
+#ifdef FSTEST_MULTI_THREADS_READ_WRITE
+	printf("%s aquired rlock! current readers cnt: %d\n", currentThread->getName(), readerCnt);
+#endif
 }
 
 void
@@ -37,18 +43,30 @@ RWLock::runlock()
 	if(readerCnt == 0)
 		wrtLock->V();
 	mutex->Release();
+#ifdef FSTEST_MULTI_THREADS_READ_WRITE
+	printf("%s released rlock~ current readers cnt: %d\n", currentThread->getName(), readerCnt);
+#endif
 }
 
 void
 RWLock::wlock()
 {
+#ifdef FSTEST_MULTI_THREADS_READ_WRITE
+	printf("%s try to aquire wlock...\n", currentThread->getName());
+#endif
 	wrtLock->P();
+#ifdef FSTEST_MULTI_THREADS_READ_WRITE
+	printf("%s aquired wlock!\n", currentThread->getName());
+#endif
 }
 
 void
 RWLock::wunlock()
 {
 	wrtLock->V();
+#ifdef FSTEST_MULTI_THREADS_READ_WRITE
+	printf("%s released wlock~\n", currentThread->getName());
+#endif
 }
 
 
