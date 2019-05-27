@@ -30,11 +30,14 @@ class Scheduler {
     void Run(Thread* nextThread);	// Cause nextThread to start running
     void Print();			// Print contents of ready list
     SchedulerMode GetMode() { return mode; }
+    void GoToSleep(Thread* thread);
+    Thread* WakeupFromSleep(int threadId);
     
   private:
     List *readyList;  		// queue of threads that are ready to run,
 				// but not running
     SchedulerMode mode;		// scheduler mode
+    List *sleepList;
 
   private:
     static void RRInterruptHandler(int threadId);

@@ -31,6 +31,7 @@ Scheduler::Scheduler(SchedulerMode schedulerMode)
 { 
     readyList = new List; 
     mode = schedulerMode;
+    sleepList = new List;
 } 
 
 //----------------------------------------------------------------------
@@ -41,6 +42,7 @@ Scheduler::Scheduler(SchedulerMode schedulerMode)
 Scheduler::~Scheduler()
 { 
     delete readyList; 
+    delete sleepList;
 } 
 
 //----------------------------------------------------------------------
@@ -204,4 +206,20 @@ Scheduler::RRInterruptHandler(int threadId)
 	} else {
 		printf("TEST: RRInterruptHandler: NOT MATCH interrupt%d curThread%d runs\n", threadId, currentThread->getTid());
 	}
+}
+
+
+void
+Scheduler::GoToSleep(Thread* thread)
+{
+	thread->setStatus(BLOCKED);
+	sleepList->Append(thread);
+}
+
+Thread*
+Scheduler::WakeupFromSleep(int threadId)
+{
+	Thread* thread = NULL;
+	thread = (Thread*)sleepList->RemoveByComp(threadIDComp, (void*)threadId);
+	return thread;
 }
