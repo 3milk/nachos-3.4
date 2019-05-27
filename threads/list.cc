@@ -236,3 +236,43 @@ List::SortedRemove(int *keyPtr)
     return thing;
 }
 
+void*
+List::RemoveByComp(CompFunctionPtr comp, void* data)
+{
+	void* thing = NULL;
+	bool isFirst = true;
+	ListElement* prev = first;
+
+    if (IsEmpty())
+    	return NULL;
+
+    if (first == last) {	// list had one item, now has none
+        thing = first->item;
+        first = NULL;
+        last = NULL;
+        return thing;
+    }
+
+	for(ListElement* ptr = first; ptr != NULL; ptr = ptr->next) {
+		if(comp(ptr->item, data)) {
+			thing = ptr->item;
+			// remove from list
+			if(isFirst) {
+				first = first->next;
+				prev->next = NULL;
+			} else {
+				if(ptr == last) {
+					last = prev;
+				}
+				prev->next = ptr->next;
+				ptr->next = NULL;
+			}
+			break;
+		}
+		if(!isFirst)
+			prev = prev->next;
+		isFirst = false;
+	}
+	return thing;
+}
+
