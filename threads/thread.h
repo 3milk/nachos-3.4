@@ -39,6 +39,7 @@
 
 #include "copyright.h"
 #include "utility.h"
+#include "list.h"
 
 #ifdef USER_PROGRAM
 #include "machine.h"
@@ -70,6 +71,7 @@ enum ThreadPriority { HIGH, MIDDLE, LOW};
 
 // external function, dummy routine whose sole job is to call Thread::Print
 extern void ThreadPrint(int arg);	 
+extern int threadIDComp(void *target, void *data);
 
 // The following class defines a "thread control block" -- which
 // represents a single thread of execution.
@@ -88,7 +90,7 @@ class Thread {
     // THEY MUST be in this position for SWITCH to work.
     int* stackTop;			 // the current stack pointer
     int machineState[MachineStateSize];  // all registers except for stackTop
-
+    //int* stackTop;			 // the current stack pointer
   private:
     Thread(char* debugName, ThreadPriority threadPriority = LOW);		// initialize a Thread
   public:
@@ -102,8 +104,9 @@ class Thread {
     void Fork(VoidFunctionPtr func, int arg); 	// Make thread run (*func)(arg)
     void Yield();  				// Relinquish the CPU if any 
 						// other thread is runnable
-    void Sleep();  				// Put the thread to sleep and 
+    void Sleep(bool waitWakeup = false);  				// Put the thread to sleep and
 						// relinquish the processor
+    void Wakeup(int threadId);
     void Finish();  				// The thread is done executing
     
     void CheckOverflow();   			// Check if thread has 
@@ -141,12 +144,15 @@ class Thread {
     void SaveUserState();		// save user-level register state
     void RestoreUserState();		// restore user-level register state
     void InitUserState();		// initialize user-level register state
+    void WriteRegister(int num, int value); // set user register value
 
     AddrSpace *space;			// User code this thread is running.
     void DeleteAddrSpace();		// delete addrspace in main memory and swap file
 
     int LazyLoad(int phyPageNum, int vpn);
     void setPTESwappingPage(int vpn, int swappingPage);
+    // !
+    AddrSpace* getAddrSpace(){ return space; }
   private:
     void setPTEValid(int vpn, int value);
 #endif
@@ -156,6 +162,10 @@ private:
     int tid;		// thread id
     ThreadPriority priority;	// thread priority
     int leftTimeSlice;	//left time slice - RR scheduler
+
+    Thread* parent;
+    List* activeChildren;
+    List* exitedChildren;
 public:
     int getUid() {return uid;}
     int getTid() {return tid;}
@@ -166,6 +176,14 @@ public:
     int getLeftTimeSlice() { return leftTimeSlice; }
     void decLeftTimeSlice(int time = 1); // every time decrease 1 time slice
     void setDefaultTimeSlice() { leftTimeSlice = DefaultTimeSlice; }
+
+    Thread* getParent() {return parent;}
+    void AddChild(Thread* child);
+    void ChildThreadExit(int tid);
+    void OrphanActiveChildren();
+    void DeleteExitedChildren();
+    void Orphan() { parent = NULL; }
+    Thread* removeExitedChild(int childId);
 };
 
 // Magical machine-dependent routines, defined in switch.s

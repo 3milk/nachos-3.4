@@ -20,7 +20,7 @@
 #include "synch.h"
 #include "system.h"
 
-#define STACK_FENCEPOST 0xdeadbeef	// this is put at the top of the
+#define STACK_FENCEPOST 0xdeadbeef//0xdeadbf37//0xdeadbea7‬//0xdeadbeef	// this is put at the top of the0xdeadbea7
 					// execution stack, for detecting 
 					// stack overflows
 
@@ -30,6 +30,15 @@ char* ThreadStatusStr[4] = {
 		"READY",
 		"BLOCKED"
 };
+
+// used to remove thread pointer from List, by tid
+int threadIDComp(void *target, void *data)
+{
+    int threadId = ((Thread *)target)->getTid();
+
+    return (threadId == (int)data);
+}
+
 
 //----------------------------------------------------------------------
 // Thread::Thread
@@ -64,6 +73,12 @@ Thread::Thread(char* threadName, ThreadPriority threadPriority)
     		break;
     	}
     }
+
+    parent = currentThread;
+    activeChildren = new List;
+    exitedChildren = new List;
+    if(threadNum > 1)
+    	currentThread->AddChild(this);
     printf("CREATE: thread %s, tid: %d\n", threadName, tid);//test
 }
 
@@ -90,6 +105,11 @@ Thread::~Thread()
     ASSERT(this != currentThread);
     if (stack != NULL)
 	DeallocBoundedArray((char *) stack, StackSize * sizeof(int));
+    OrphanActiveChildren();
+    DeleteExitedChildren();
+
+    delete activeChildren;
+    delete exitedChildren;
     printf("DELETE: thread %d\n", tid);//test
 }
 
@@ -180,7 +200,12 @@ Thread::Finish ()
     
     DEBUG('t', "Finishing thread \"%s\"\n", getName());
     
-    threadToBeDestroyed = currentThread;
+    if(parent != NULL) {
+    	// wait parent exit and delete its children?
+    	parent->ChildThreadExit(tid);
+    } else {
+    	threadToBeDestroyed = currentThread;
+    }
     Sleep();					// invokes SWITCH
     // not reached
 }
@@ -242,7 +267,7 @@ Thread::Yield ()
 //	off the ready list, and switching to it.
 //----------------------------------------------------------------------
 void
-Thread::Sleep ()
+Thread::Sleep (bool waitWakeup)
 {
     Thread *nextThread;
     
@@ -252,10 +277,29 @@ Thread::Sleep ()
     DEBUG('t', "Sleeping thread \"%s\"\n", getName());
 
     status = BLOCKED;
+    // add to sleepList
+    if(waitWakeup)
+    	scheduler->GoToSleep(currentThread);
     while ((nextThread = scheduler->FindNextToRun()) == NULL)
 	interrupt->Idle();	// no one to run, wait for an interrupt
         
     scheduler->Run(nextThread); // returns when we've been signalled
+}
+
+void
+Thread::Wakeup(int threadId)
+{
+	Thread* thread = NULL;
+	printf("[Thread::Wakeup] %d %s try to wake up %d %s...\n", currentThread->getTid(), currentThread->getName(), threadId, tid_pointer[threadId]->getName());
+	// get sleep thread from sleepList
+	thread = scheduler->WakeupFromSleep(threadId);
+	// if not NULL, add to readyList
+	if(thread != NULL) {
+		printf("[Thread::Wakeup] %d %s wake up %d %s!\n", currentThread->getTid(), currentThread->getName(), threadId, tid_pointer[threadId]->getName());
+		scheduler->ReadyToRun(thread);
+	} else {
+		printf("[Thread::Wakeup] no thread: %d %s in sleepList :( \n", threadId, tid_pointer[threadId]->getName());
+	}
 }
 
 //----------------------------------------------------------------------
@@ -381,6 +425,12 @@ Thread::InitUserState()
 
 }
 
+void
+Thread::WriteRegister(int num, int value)
+{
+	ASSERT((num >= 0) && (num < NumTotalRegs));
+	userRegisters[num] = value;
+}
 
 void
 Thread::DeleteAddrSpace()
@@ -467,4 +517,49 @@ Thread::decLeftTimeSlice(int time)
 	} else {
 		leftTimeSlice = 0;
 	}
+}
+
+
+void
+Thread::AddChild(Thread* child)
+{
+	activeChildren->Append(child);
+}
+
+void
+Thread::ChildThreadExit(int tid)
+{
+	Thread *thread;
+	thread = (Thread *)activeChildren->RemoveByComp(threadIDComp, (void *)tid);
+	if (thread != NULL)
+	{
+	    exitedChildren->Append(thread);
+	    // some child has exited, wakeup parent if it had been BLOCKED by JOIN
+	    Wakeup(this->tid);
+	}
+}
+
+void
+Thread::OrphanActiveChildren()
+{
+	while(!activeChildren->IsEmpty()) {
+		Thread* child = (Thread*)activeChildren->Remove();
+		child->Orphan(); // child->parent = NULL
+	}
+}
+
+void
+Thread::DeleteExitedChildren()
+{
+	while(!exitedChildren->IsEmpty()) {
+		Thread* child = (Thread*)exitedChildren->Remove();
+		delete child;
+	}
+}
+
+
+Thread*
+Thread::removeExitedChild(int childId)
+{
+	return (Thread *)exitedChildren->RemoveByComp(threadIDComp, (void *)childId);
 }
