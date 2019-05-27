@@ -24,13 +24,18 @@
 #include "copyright.h"
 #include "system.h"
 #include "syscall.h"
+#include "uprogUtility.h"
 
 #define MIN_FILE_SIZE 0//64
 #define MAX_FILENAME_LEN 100
 
+#define TransferSize 100
+#define MAX_PATH_LEN 256
+
 static void FetchStrFromUserSpace(char* buf, int size, int addr);
 static void FetchFromUserSpace(char* buf, int size, int addr);
 static void WriteBackToUserSpace(char* buf, int size, int addr);
+
 
 static void SysCallPrintHandler();
 static void SysCallPrintIntHandler();
@@ -79,7 +84,6 @@ void FetchStrFromUserSpace(char* buf, int size, int addr)
 //	}
 void WriteBackToUserSpace(char* buf, int size, int addr)
 {
-	int i = 0;
 	bool pageFault = false;
 
 	for(int i = 0; i<size || pageFault; i++)
@@ -100,7 +104,6 @@ void WriteBackToUserSpace(char* buf, int size, int addr)
 //	}
 void FetchFromUserSpace(char* buf, int size, int addr)
 {
-	int i = 0;
 	bool pageFault = false;
 
 	for(int i = 0; i<size || pageFault; i++)
@@ -115,6 +118,7 @@ void FetchFromUserSpace(char* buf, int size, int addr)
 		}
 	}
 }
+
 
 
 //----------------------------------------------------------------------
@@ -207,6 +211,7 @@ ExceptionHandler(ExceptionType which)
 static void SysCallExitHandler()
 {
     int exitStatus = machine->ReadRegister(4);
+    printf("SYSCALL: exit code %d, current Thread %s\n", exitStatus, currentThread->getName());
 
     // Delete thread' address space.
 	currentThread->DeleteAddrSpace();
@@ -224,6 +229,7 @@ static void SysCallPrintHandler()
 	int size = machine->ReadRegister(5);
 
 	char* buf = new char[size + 5];
+	memset(buf, 1, size+5);
 
 	FetchStrFromUserSpace(buf, size+5, msg);
 	printf("%s\n", buf);
@@ -239,7 +245,6 @@ static void SysCallPrintIntHandler()
 	printf("%d\n", number);
 	machine->PCForward();
 }
-
 
 static void SysCallCreateHandler()
 {
@@ -333,56 +338,110 @@ static int SysCallWriteHandler()
 }
 
 #ifdef USER_PROGRAM
+
+void ThreadFuncForUserProg(int arg)
+{
+	machine->Run();
+}
+
+
 static void SysCallExecHandler()
 {
 	//char* name = machine->ReadRegister(4);
-	char name[100];
+	char fname[MAX_FILENAME_LEN];
 	int arg = machine->ReadRegister(4);
-	int i = 0;
 
 	// Get the executable file name from user space.
-	do
-	{
-		machine->ReadMem(arg + i, 1, (int*)&name[i]);
-	}while(name[i++] != '\0');
+	FetchStrFromUserSpace(fname, MAX_FILENAME_LEN, arg);
 
-	// TODO
-	//return SpaceId
+	// copy executable file from Unix to Nachos
+	CopyExecFile(fname , fname);
+
+    // Open the executable file.
+	OpenFile* executable = fileSystem->Open(fname);
+	if (executable != NULL)
+	{
+        // Set up a new thread and alloc address space for it.
+		Thread* userThread = Thread::getInstance("exec user thread");
+		AddrSpace* space = new AddrSpace(executable); //?? TODO use default noff file,
+					//which offH.code.size, noffH.initData.size, noffH.uninitData.size are all 0
+		space->AllocAddrSpace(userThread->getTid());
+		userThread->space = space;
+
+		userThread->InitUserState();
+
+        // Return the new thread id.
+		machine->WriteRegister(2, userThread->getTid());
+
+		printf("SYSCALL: exec: %d %s\n", userThread->getTid(), userThread->getName());
+		userThread->Fork(ThreadFuncForUserProg, 1);
+	}
+	else
+	{
+        // Can't open executable file, so return -1.
+		machine->WriteRegister(2, -1);
+	}
+
 	machine->PCForward();
 }
 
 static void SysCallForkHandler()
 {
 	int ufunc = machine->ReadRegister(4);
-	Thread* userThread = Thread::getInstance("user thread");
-	//AddrSpace* space = new AddrSpace(NULL); //??
-	//space->AllocAddrSpace(userThread->getTid());
-	//userThread->space = space;
+	Thread* userThread = Thread::getInstance("fork user thread");
+	AddrSpace* space = new AddrSpace(NULL); //?? TODO use default noff file,
+			//which offH.code.size, noffH.initData.size, noffH.uninitData.size are all 0
+	space->AllocAddrSpace(userThread->getTid());
+	userThread->space = space;
 
-	// save
+	// Copy machine registers of current thread to new thread
 	userThread->SaveUserState();
-	// PC
-	//userThread->WriteRegister(PCReg, ufunc);
-	//userThread->WriteRegister(NextPCReg, ufunc+4);
-	//userThread->WriteRegister(StackReg,
-			//userRegisters[StackReg] = space->GetNumPages() * PageSize - 16;
+	// Modify PC/SP register of new thread
+	userThread->WriteRegister(PCReg, ufunc);
+	userThread->WriteRegister(NextPCReg, ufunc+4);
+	userThread->WriteRegister(StackReg, space->GetNumPages()* PageSize - 16); //?? TODO
 
-	//userThread->Fork(void(*)ufunc, 0);
-
+	printf("SYSCALL: fork: %d %s\n", userThread->getTid(), userThread->getName());
+	//userThread->Fork(ThreadFuncForUserProg, 0);
+	userThread->Fork(ThreadFuncForUserProg, 0);
 
 	machine->PCForward();
 }
 
 static void SysCallYieldHandler()
 {
+    printf("SYSCALL: yield current thread: %d %s \n", currentThread->getTid(), currentThread->getName());
 	currentThread->Yield();
 	machine->PCForward();
 }
 
 static void SysCallJoinHandler()
 {
-	SpaceId id = machine->ReadRegister(4);
-	// return int
+	Thread *childThread;
+	int exitStatus = 0;
+	SpaceId childId = machine->ReadRegister(4);
+
+	printf("SYSCALL: join: childID: %d\n", childId);
+
+    // Check the waiting child thread whether in the exited child list or not.
+    childThread = currentThread->removeExitedChild(childId);
+    while (childThread == NULL)
+    {
+        // If the child thread is not in the exited child list, current thread sleep.
+    	IntStatus oldLevel =  interrupt->SetLevel(IntOff); //??
+        currentThread->Sleep(true); // no thread wake up this?
+        childThread = currentThread->removeExitedChild(childId);
+        (void) interrupt->SetLevel(oldLevel);
+    }
+
+    // Get child thread's exit status.
+    exitStatus = childThread->getExitStatus();
+    printf("SYSCALL: join: %d %s: exitStatus: %d\n", childThread->getTid(), childThread->getName(), exitStatus);
+
+    delete childThread;
+
+    // Return the child thread's exit status.
+    machine->WriteRegister(2, exitStatus);
 	machine->PCForward();
 }
 #endif
