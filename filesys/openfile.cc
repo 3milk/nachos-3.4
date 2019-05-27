@@ -309,3 +309,10 @@ OpenFile::Length()
 { 
     return hdr->FileLength(); 
 }
+
+
+OpenFile*
+OpenFile::GetFileDescriptorCopy()
+{
+	return new OpenFile(hdrSector, parHdrSector);
+}

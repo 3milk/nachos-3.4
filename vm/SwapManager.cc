@@ -59,7 +59,7 @@ SwapManager::swapIntoDisk(int physicalPage)
  * swappingPage:	page number in "disk", this page is to be swapped into memory
  * */
 void
-SwapManager::swapOutFromDisk(int physicalPage, int swappingPage)
+SwapManager::swapOutFromDisk(int physicalPage, int swappingPage, bool copy)
 {
 	int phyMemPosition;
 	int swappingPosition;
@@ -72,12 +72,43 @@ SwapManager::swapOutFromDisk(int physicalPage, int swappingPage)
 							 PageSize,
 							 swappingPosition);
 
-		swappingSpaceMap->Clear(swappingPage);
+		if(!copy) {
+			// AddrSpace::CopyMemFromParent
+			// just copy from Swapping for child phyPage
+			// remain the Swapping for parent phyPage
+			swappingSpaceMap->Clear(swappingPage);
+		}
 	}
 	else
 	{
 		printf("Swap Out Failed!\n");
 	}
+}
+
+int
+SwapManager::copySwapping(int copyPage)
+{
+	int writePage;
+	char buf[PageSize];
+	int copyPosition; // orig copy
+	int writePosition;// final copy save
+
+	if (swappingSpaceMap->NumClear() != 0)
+	{
+		writePage = swappingSpaceMap->Find();
+		copyPosition = copyPage * PageSize;
+		writePosition = writePage * PageSize;
+
+		swappingFile->ReadAt(buf, PageSize, copyPosition);
+		swappingFile->WriteAt(buf, PageSize, writePosition);
+	}
+	else
+	{
+		printf("copy Swap Failed!\n");
+		writePage = -1;
+	}
+
+	return writePage;
 }
 
 void

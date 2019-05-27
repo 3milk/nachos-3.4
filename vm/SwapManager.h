@@ -13,7 +13,8 @@ class SwapManager
 		~SwapManager();
 
 		int swapIntoDisk(int physicalPage);
-		void swapOutFromDisk(int physicalPage, int swappingPage);
+		void swapOutFromDisk(int physicalPage, int swappingPage, bool copy = false);
+		int copySwapping(int copyPage);
 
 		void Clear(int which);
 
