@@ -22,6 +22,7 @@
 #ifdef HOST_SPARC
 #include <strings.h>
 #endif
+#include <string.h>
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -49,8 +50,8 @@ SwapHeader (NoffHeader *noffH)
 bool
 AddrSpace::AllocAddrSpace(int tid)
 {
-	if(execFile == NULL)
-		return false;
+//	if(execFile == NULL)
+//		return false;
 
 	if(tid < 0 || tid >= MAX_THREADS_NUM)
 		return false;
@@ -58,19 +59,34 @@ AddrSpace::AllocAddrSpace(int tid)
 
 	NoffHeader noffH;
 	unsigned int i, size;
+	bool shareFromParent = false;
 
-	execFile->ReadAt((char *)&noffH, sizeof(noffH), 0);
-	if ((noffH.noffMagic != NOFFMAGIC) &&
-		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
-	   	SwapHeader(&noffH);
-	ASSERT(noffH.noffMagic == NOFFMAGIC);
+	if (execFile == NULL) {
+		// syscall - fork: copy parent memoey and execFile
+		// getParent AddrSpace( copy execFile & read page table content)
+		Thread* thread = tid_pointer[tid];
+		Thread* parent = thread->getParent();
+		AddrSpace* parAddr = parent->getAddrSpace();
+		// execFile copy, size = parent size
+		numPages = parAddr->GetNumPages();
+		execFile = parAddr->getExecFileCopy();
+		shareFromParent = true;
+	} else {
+		// execFile != NULL
+		execFile->ReadAt((char *)&noffH, sizeof(noffH), 0);
+		if ((noffH.noffMagic != NOFFMAGIC) &&
+			(WordToHost(noffH.noffMagic) == NOFFMAGIC))
+		   	SwapHeader(&noffH);
+		ASSERT(noffH.noffMagic == NOFFMAGIC);
 
-	// how big is address space?
-	size = noffH.code.size + noffH.initData.size + noffH.uninitData.size
-			+ UserStackSize;	// we need to increase the size
-							// to leave room for the stack
-	numPages = divRoundUp(size, PageSize);
+		// how big is address space?
+		size = noffH.code.size + noffH.initData.size + noffH.uninitData.size
+				+ UserStackSize;	// we need to increase the size
+									// to leave room for the stack
+		numPages = divRoundUp(size, PageSize);
+	}
 	size = numPages * PageSize;
+
 
 	//ASSERT(numPages <= NumPhysPages);		// check we're not trying
 							// to run anything too big --
@@ -131,6 +147,15 @@ AddrSpace::AllocAddrSpace(int tid)
 	}
 
 
+	if(shareFromParent) {
+		// syscall - fork: code is not in execFile, code is in host memory
+		// no need to copy from host memory to Nachos main memory
+		Thread* thread = tid_pointer[tid];
+		Thread* parent = thread->getParent();
+		AddrSpace* parAddr = parent->getAddrSpace();
+		return CopyMemFromParent(parAddr);
+	}
+	// if (execFile != NULL)
 	// then, copy in the code and data segments into memory
 	// byte by byte
 	int  bufSize =  noffH.code.size > noffH.initData.size ? noffH.code.size : noffH.initData.size;
@@ -369,6 +394,8 @@ AddrSpace::LazyLoad(int phyPageNum, int vpn)
 		bzero(machine->mainMemory + phyPosition, PageSize);
 		printf("LazyLoad: from uninitData or UserStack\n");
 	}
+
+
 	return 0;
 }
 
@@ -410,4 +437,44 @@ AddrSpace::getPTEPPN(int vpn)
 	if(vpn < 0 || vpn > numPages)
 		return -1;
 	return pageTable[vpn].physicalPage;
+}
+
+bool
+AddrSpace::CopyMemFromParent(AddrSpace* parAddr)
+{
+	for(int i = 0; i<numPages; i++)
+	{
+		int childPhyPage = pageTable[i].physicalPage;
+		int parPhyPage = parAddr->getPTEPPN(i);
+		if(pageTable[i].valid)
+		{
+			// child PTE is valid
+			if(parAddr->getPTEValid(i)) {
+				// parent page is in MainMemory
+				memcpy(&machine->mainMemory[childPhyPage], &machine->mainMemory[parPhyPage], PageSize);
+			} else if(parAddr->getPTESwappingPage(i) == -1) {
+				// parent page is in execFile
+				LazyLoad(childPhyPage, i);
+			} else {
+				// parent page is in Swapping
+				int swappingPage = parAddr->getPTESwappingPage(i);
+				swapManager->swapOutFromDisk(childPhyPage, swappingPage, true);
+			}
+		} else { // !pageTable[i].valid
+			// child PTE is invalid
+			if(parAddr->getPTEValid(i)) {
+				// parent page is in MainMemory
+				int swappingPage = swapManager->swapIntoDisk(parPhyPage);
+				pageTable[i].swappingPage = swappingPage;
+			} else if(parAddr->getPTESwappingPage(i) == -1) {
+				// parent page is in execFile
+				// do nothing
+			} else {
+				// parent page is in Swapping
+				int swappingPage = parAddr->getPTESwappingPage(i);
+				pageTable[i].swappingPage = swapManager->copySwapping(swappingPage);
+			}
+		}
+	}
+	return true;
 }

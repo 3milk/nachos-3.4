@@ -41,6 +41,9 @@ class AddrSpace {
     bool getPTEValid(int vpn);
     void setPTEValid(int vpn, bool value);
     int getPTEPPN(int vpn);
+
+    OpenFile* getExecFileCopy() { return execFile->GetFileDescriptorCopy();}
+    bool CopyMemFromParent(AddrSpace* parADdr);
   private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
