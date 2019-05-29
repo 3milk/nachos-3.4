@@ -35,7 +35,8 @@ CPP = gcc -E
 INCDIR =-I../userprog -I../threads -I /usr/include
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt shell matmult sort tlb_test multi_proc1 multi_proc2 vm_test
+all: halt shell matmult sort tlb_test multi_proc1 multi_proc2 vm_test \
+	fileSysCallTest progSysCallTest execSysCallTest 
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.c > strt.s
@@ -89,3 +90,21 @@ vm_test.o: vm_test.c
 vm_test: vm_test.o start.o
 	$(LD) $(LDFLAGS) start.o vm_test.o -o vm_test.coff
 	../bin/coff2noff vm_test.coff vm_test
+	
+fileSysCallTest.o: fileSysCallTest.c
+	$(CC) $(CFLAGS) -c fileSysCallTest.c
+fileSysCallTest: fileSysCallTest.o start.o
+	$(LD) $(LDFLAGS) start.o fileSysCallTest.o -o fileSysCallTest.coff
+	../bin/coff2noff fileSysCallTest.coff fileSysCallTest
+
+progSysCallTest.o: progSysCallTest.c
+	$(CC) $(CFLAGS) -c progSysCallTest.c
+progSysCallTest: progSysCallTest.o start.o
+	$(LD) $(LDFLAGS) start.o progSysCallTest.o -o progSysCallTest.coff
+	../bin/coff2noff progSysCallTest.coff progSysCallTest
+
+execSysCallTest.o: execSysCallTest.c
+	$(CC) $(CFLAGS) -c execSysCallTest.c
+execSysCallTest: execSysCallTest.o start.o
+	$(LD) $(LDFLAGS) start.o execSysCallTest.o -o execSysCallTest.coff
+	../bin/coff2noff execSysCallTest.coff execSysCallTest

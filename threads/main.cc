@@ -86,7 +86,7 @@ main(int argc, char **argv)
 
     DEBUG('t', "Entering main");
     (void) Initialize(argc, argv);
-    
+/*
 #ifdef THREADS
     for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
       argCount = 1;
@@ -102,30 +102,31 @@ main(int argc, char **argv)
     }
 
     ThreadTest();
-#endif
+#endif*/
 
-    for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
+     for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
 	argCount = 1;
         if (!strcmp(*argv, "-z"))               // print copyright
             printf (copyright);
 #ifdef USER_PROGRAM
-        if (!strcmp(*argv, "-x")) {        	// run a user program
+       if (!strcmp(*argv, "-x")) {        	// run a user program
 	    ASSERT(argc > 1);
             StartProcess(*(argv + 1));
             argCount = 2;
         } else if (!strcmp(*argv, "-c")) {      // test the console
-	    if (argc == 1)
-	        ConsoleTest(NULL, NULL);
-	    else {
-		ASSERT(argc > 2);
-	        ConsoleTest(*(argv + 1), *(argv + 2));
-	        argCount = 3;
-	    }
-	    interrupt->Halt();		// once we start the console, then 
+        	if (argc == 1)
+        		ConsoleTest(NULL, NULL);
+        	else {
+        		ASSERT(argc > 2);
+        		ConsoleTest(*(argv + 1), *(argv + 2));
+        		argCount = 3;
+	    	}
+	    	interrupt->Halt();		// once we start the console, then
 					// Nachos will loop forever waiting 
 					// for console input
-	}
+        }
 #endif // USER_PROGRAM
+
 #ifdef FILESYS
 	if (!strcmp(*argv, "-cp")) { 		// copy from UNIX to Nachos
 	    ASSERT(argc > 2);

@@ -14,13 +14,13 @@ main()
 
     while( 1 )
     {
-	Write(prompt, 2, output);
+	Write(prompt, 2, output, SEEK_POS_U_CUR);
 
 	i = 0;
 	
 	do {
 	
-	    Read(&buffer[i], 1, input); 
+	    Read(&buffer[i], 1, input, SEEK_POS_U_CUR);
 
 	} while( buffer[i++] != '\n' );
 

@@ -86,7 +86,8 @@ USERPROG_H = ../userprog/addrspace.h\
 	../machine/machine.h\
 	../machine/mipssim.h\
 	../machine/translate.h\
-	../userprog/memmanager.h
+	../userprog/memmanager.h\
+	../userprog/uprogUtility.h
 
 USERPROG_C = ../userprog/addrspace.cc\
 	../userprog/bitmap.cc\
@@ -96,10 +97,11 @@ USERPROG_C = ../userprog/addrspace.cc\
 	../userprog/exception.cc\
 	../machine/mipssim.cc\
 	../machine/translate.cc\
-	../userprog/memmanager.cc
+	../userprog/memmanager.cc\
+	../userprog/uprogUtility.cc
 
 USERPROG_O = addrspace.o bitmap.o progtest.o console.o machine.o exception.o \
-	mipssim.o translate.o memmanager.o
+	mipssim.o translate.o memmanager.o uprogUtility.o
 
 VM_H = ../vm/SwapManager.h
 VM_C = ../vm/SwapManager.cc
