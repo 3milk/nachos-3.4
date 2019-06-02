@@ -58,6 +58,7 @@
 #define FreeMapFileSize 	(NumSectors / BitsInByte)
 //#define NumDirEntries 		10
 #define DirectoryFileSize 	(sizeof(DirectoryEntry) * NumDirEntries)
+#define PipeFileSize		SectorSize
 
 //----------------------------------------------------------------------
 // FileSystem::FileSystem
@@ -80,6 +81,7 @@ FileSystem::FileSystem(bool format)
         Directory *directory = new Directory(NumDirEntries);
         FileHeader *mapHdr = new FileHeader;
         FileHeader *dirHdr = new FileHeader;
+        FileHeader *pipeHdr = new FileHeader;
 
         DEBUG('f', "Formatting the file system.\n");
 
@@ -87,12 +89,14 @@ FileSystem::FileSystem(bool format)
         // (make sure no one else grabs these!)
         freeMap->Mark(FreeMapSector);
         freeMap->Mark(DirectorySector);
+        freeMap->Mark(PipeSector);
 
         // Second, allocate space for the data blocks containing the contents
         // of the directory and bitmap files.  There better be enough space!
 
         ASSERT(mapHdr->Allocate(freeMap, FreeMapFileSize));
         ASSERT(dirHdr->Allocate(freeMap, DirectoryFileSize));
+        ASSERT(pipeHdr->Allocate(freeMap, PipeFileSize));
 
         // Flush the bitmap and directory FileHeaders back to disk
         // We need to do this before we can "Open" the file, since open
@@ -105,9 +109,13 @@ FileSystem::FileSystem(bool format)
         dirHdr->setCreateTime();
         dirHdr->setAccessTime();
         dirHdr->setUpdateTime();
+        pipeHdr->setCreateTime();
+        pipeHdr->setAccessTime();
+        pipeHdr->setUpdateTime();
         DEBUG('f', "Writing headers back to disk.\n");
         mapHdr->WriteBack(FreeMapSector);
         dirHdr->WriteBack(DirectorySector);
+        pipeHdr->WriteBack(PipeSector);
 
         // OK to open the bitmap and directory files now
         // The file system operations assume these two files are left open
@@ -115,6 +123,7 @@ FileSystem::FileSystem(bool format)
 
         freeMapFile = new OpenFile(FreeMapSector);
         directoryFile = new OpenFile(DirectorySector);
+        pipeFile = new OpenFile(PipeSector);
      
         // Once we have the files "open", we can write the initial version
         // of each file back to disk.  The directory at this point is completely
@@ -137,12 +146,14 @@ FileSystem::FileSystem(bool format)
         	delete directory;
         	delete mapHdr;
         	delete dirHdr;
+        	delete pipeHdr;
         }
     } else {
     // if we are not formatting the disk, just open the files representing
     // the bitmap and directory; these are left open while Nachos is running
         freeMapFile = new OpenFile(FreeMapSector);
         directoryFile = new OpenFile(DirectorySector);
+        pipeFile = new OpenFile(PipeSector);
     }
 }
 
@@ -257,6 +268,7 @@ FileSystem::ExtendFile(char *name, int extendSize)
     FileHeader *hdr = NULL;
     BitMap* freeMap = NULL;
     int sector;
+    int res = TRUE;
 
     DEBUG('f', "Extend file %s\n", name);
 
@@ -282,12 +294,14 @@ FileSystem::ExtendFile(char *name, int extendSize)
     	hdr->WriteBack(sector);
 
     	freeMap->WriteBack(freeMapFile);
+    } else {
+    	res = FALSE;
     }
     delete directory;				// 1cb0 --> 1c00
     delete dirPathFile;
     delete hdr;
     delete freeMap;
-    return TRUE;				// return NULL if not found
+    return res;
 }
 
 // sector: the location of the file header
@@ -609,5 +623,38 @@ FileSystem::getDirPathSector(char* name, int level, int totalLevel, int dirFileS
 		delete dirFile;
 		delete directory;
 	}
+	return res;
+}
+
+int
+FileSystem::ReadPipe(char* data)
+{
+	FileHeader* hdr = new FileHeader;
+	hdr->FetchFrom(PipeSector);
+	int len = hdr->FileLength();
+	if(len == 0){
+		delete hdr;
+		printf("ReadPipe:: no data in pipe\n");
+		return 0;
+	}
+	OpenFile* file = new OpenFile(PipeSector);
+	int res = file->Read(data, len, SEEK_POS_SET);
+	printf("ReadPipe:: read from pipe: %s\n", data);
+	delete file;
+	delete hdr;
+	return res;
+}
+
+int
+FileSystem::WritePipe(char* data, int len)
+{
+	//FileHeader* hdr = new FileHeader;
+	//hdr->FetchFrom(PipeSector);
+	OpenFile* file = new OpenFile(PipeSector);
+	int res = file->Write(data, len, SEEK_POS_SET);
+	printf("WritePipe:: write to pipe: successLen:%d\n", res);
+
+	delete file;
+	//delete hdr;
 	return res;
 }

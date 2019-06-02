@@ -44,6 +44,7 @@
 // sectors, so that they can be located on boot-up.
 #define FreeMapSector 		0
 #define DirectorySector 	1
+#define PipeSector			2
 
 #ifdef FILESYS_STUB 		// Temporarily implement file system calls as 
 				// calls to UNIX, until the real file system
@@ -96,11 +97,15 @@ class FileSystem {
     void Print();			// List all the files and their contents
 
     int getDirPathSector(char* name, int level, int totalLevel, int dirFileSector=DirectorySector);
+
+    int ReadPipe(char* data);
+    int WritePipe(char* data, int len);
   private:
    OpenFile* freeMapFile;		// Bit map of free disk blocks,
 					// represented as a file
    OpenFile* directoryFile;		// "Root" directory -- list of 
 					// file names, represented as a file
+   OpenFile* pipeFile;			// pipe file
 };
 
 #endif // FILESYS

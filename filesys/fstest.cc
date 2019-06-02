@@ -111,8 +111,8 @@ Print(char *name)
 //	  PerformanceTest -- overall control, and print out performance #'s
 //----------------------------------------------------------------------
 
-#define FileName 	"/TestFile"
-//#define FileName 	"/A/B/TestFile"
+//#define FileName 	"/TestFile"
+#define FileName 	"/A/B/TestFile"
 #define Contents 	"1234567890"
 #define ContentSize 	strlen(Contents)
 #define FileSize 	((int)(ContentSize ))//* 4000))//5000))
@@ -131,7 +131,8 @@ enum FStestCase {
 	FSTEST_EXTEND_FILE_SET,
 	FSTEST_EXTEND_FILE_WRITE,
 	FSTEST_MULTI_THREADS_READWRITE,
-	FSTEST_REMOVE
+	FSTEST_REMOVE,
+	FSTEST_PIPE,
 };
 
 static void
@@ -279,7 +280,7 @@ void TestExtendFileWrite()
 {
 	printf("[PerformanceTest] Starting file system performance test:\n");
 	stats->Print();
-	FileWrite(); // TODO
+	FileWrite();
 	printf("[PerformanceTest] After write\n");
 	fileSystem->List();
 	fileSystem->Print();
@@ -392,10 +393,40 @@ void TestRemove()
 	rm->Fork(FileRemove, 0);
 }
 
+
+void TestReadPipe(int tmp)
+{
+	//for(int i = 0; i<2; i++) {
+		printf("read from pipe:\n");
+		char data[SectorSize + 1];
+		fileSystem->ReadPipe(data);
+		int len = strlen(data);
+		printf("[TestReadPipe] len:%d\n content:%s\n", len, data);
+	//}
+}
+
+void TestWritePipe(int tmp)
+{
+	printf("write to pipe:\n");
+	char data[SectorSize + 1];
+	scanf("%s", data);
+	int size = strlen(data);
+	int len = fileSystem->WritePipe(data, size+1);
+	printf("[TestWritePipe] len:%d\n", len);
+}
+
+void TestPipe()
+{
+	Thread* rp = Thread::getInstance("read pipe");
+	Thread* wp = Thread::getInstance("write pipe");
+	wp->Fork(TestWritePipe, 0);
+	rp->Fork(TestReadPipe, 1);
+}
+
 void
 PerformanceTest()
 {
-	int testCase = FSTEST_REMOVE;//FSTEST_MULTI_THREADS_READWRITE;//FSTEST_EXTEND_FILE_SET;
+	int testCase = FSTEST_PIPE;//FSTEST_REMOVE;//FSTEST_MULTI_THREADS_READWRITE;//FSTEST_EXTEND_FILE_SET;
 	switch(testCase) {
 	case FSTEST_FIRST_INDEX_FILE:
 		TestFirstIndexFile();
@@ -419,6 +450,9 @@ PerformanceTest()
 		break;
 	case FSTEST_REMOVE: // // set MakeFile -DFSTESTREMOVE
 		TestRemove();
+		break;
+	case FSTEST_PIPE:
+		TestPipe();
 		break;
 	}
 }
