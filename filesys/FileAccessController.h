@@ -32,6 +32,7 @@ public:
 	~FileAccessController();
 
 	void open(int hdr);
+	void close(int hdr);
 	bool remove(int hdr);		// called by FileSystem::Remove
 	bool checkRemove(int hdr);	// called by OpenFile::~OpenFile
 	void finishRemove(int hdr);

@@ -21,9 +21,20 @@ FileAccessController::open(int hdr)
 	// assume that open a file, not a directory
 	ASSERT(hdr >= 0 && hdr < NumSectors);
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
+	++facbs[hdr].referenceNum;
 	if(facbs[hdr].rwlock == NULL) {
 		facbs[hdr].rwlock = new RWLock();
 	}
+	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
+}
+
+void
+FileAccessController::close(int hdr)
+{
+	// assume that open a file, not a directory
+	ASSERT(hdr >= 0 && hdr < NumSectors);
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
+	++facbs[hdr].referenceNum;
 	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
 }
 
@@ -79,11 +90,11 @@ void
 FileAccessController::rlock(int hdr)
 {
 	ASSERT(hdr >= 0 && hdr < NumSectors);
-	IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
-	++facbs[hdr].referenceNum;
+	//IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
+	//++facbs[hdr].referenceNum;
 	facbs[hdr].rwlock->rlock();
 
-	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
+	//(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
 }
 
 
@@ -91,11 +102,11 @@ void
 FileAccessController::runlock(int hdr)
 {
 	ASSERT(hdr >= 0 && hdr < NumSectors);
-	IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
-	--facbs[hdr].referenceNum;
+	//IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
+	//--facbs[hdr].referenceNum;
 	facbs[hdr].rwlock->runlock();
 
-	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
+	//(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
 }
 
 
@@ -103,11 +114,11 @@ void
 FileAccessController::wlock(int hdr)
 {
 	ASSERT(hdr >= 0 && hdr < NumSectors);
-	IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
-	++facbs[hdr].referenceNum;
+	//IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
+	//++facbs[hdr].referenceNum;
 	facbs[hdr].rwlock->wlock();
 
-	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
+	//(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
 }
 
 
@@ -115,9 +126,9 @@ void
 FileAccessController::wunlock(int hdr)
 {
 	ASSERT(hdr >= 0 && hdr < NumSectors);
-	IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
-	--facbs[hdr].referenceNum;
+	//IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
+	//--facbs[hdr].referenceNum;
 	facbs[hdr].rwlock->wunlock();
 
-	(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
+	//(void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
 }

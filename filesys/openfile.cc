@@ -49,6 +49,7 @@ OpenFile::OpenFile(int sector, int parSector)
 OpenFile::~OpenFile()
 {
 	printf("Close file: hdr %d\n", hdrSector);
+	fileAccessController->close(hdrSector);
     if(fileAccessController->checkRemove(hdrSector)
     		&& parHdrSector != -1)
     {
