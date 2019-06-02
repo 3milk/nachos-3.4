@@ -253,6 +253,14 @@ Directory::Print()
     		printf("Path: %s\n", table[i].path);
     		hdr->FetchFrom(table[i].sector);
     		hdr->Print();
+    		if(table[i].type == FILETYPE_DIR && i!=CURRENT_DIR){
+    			Directory* subdir = new Directory(NumDirEntries);
+    			OpenFile* subdirf = new OpenFile(table[i].sector);
+    			subdir->FetchFrom(subdirf);
+    			subdir->Print();
+    			delete subdirf;
+    			delete subdir;
+    		}
     	}
     printf("\n");
     delete hdr;
